@@ -56,7 +56,7 @@ mod predicate;
 mod predicate_value;
 mod query;
 mod regex;
-mod request;
+pub mod request;
 mod response;
 mod result;
 mod runner_options;
