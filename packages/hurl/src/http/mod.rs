@@ -32,8 +32,7 @@ pub use self::header::{
 };
 pub(crate) use self::options::{ClientOptions, Verbosity};
 pub use self::request::{IpResolve, Request, RequestedHttpVersion};
-pub use self::request_spec::{Body, RequestSpec};
-pub(crate) use self::request_spec::{FileParam, Method, MultipartParam};
+pub use self::request_spec::{Body, FileParam, Method, MultipartParam, RequestSpec};
 pub use self::response::{HttpVersion, Response};
 #[cfg(test)]
 pub use self::tests::*;
