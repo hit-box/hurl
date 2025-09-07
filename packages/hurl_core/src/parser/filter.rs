@@ -15,13 +15,13 @@
  * limitations under the License.
  *
  */
-use crate::ast::{Filter, FilterValue, SourceInfo, Whitespace};
+use crate::ast::{Filter, FilterValue, IntegerValue, SourceInfo, Whitespace};
 use crate::combinator::{choice, ParseError as ParseErrorTrait};
 use crate::parser::number::integer;
 use crate::parser::primitives::{one_or_more_spaces, try_literal, zero_or_more_spaces};
 use crate::parser::query::regex_value;
 use crate::parser::string::quoted_template;
-use crate::parser::{ParseError, ParseErrorKind, ParseResult};
+use crate::parser::{placeholder, ParseError, ParseErrorKind, ParseResult};
 use crate::reader::Reader;
 
 pub fn filters(reader: &mut Reader) -> ParseResult<Vec<(Whitespace, Filter)>> {
@@ -63,6 +63,7 @@ pub fn filter(reader: &mut Reader) -> ParseResult<Filter> {
             decode_filter,
             first_filter,
             format_filter,
+            date_format_filter,
             html_decode_filter,
             html_encode_filter,
             jsonpath_filter,
@@ -157,6 +158,13 @@ fn format_filter(reader: &mut Reader) -> ParseResult<FilterValue> {
     Ok(FilterValue::Format { space0, fmt })
 }
 
+fn date_format_filter(reader: &mut Reader) -> ParseResult<FilterValue> {
+    try_literal("dateFormat", reader)?;
+    let space0 = one_or_more_spaces(reader)?;
+    let fmt = quoted_template(reader)?;
+    Ok(FilterValue::DateFormat { space0, fmt })
+}
+
 fn html_encode_filter(reader: &mut Reader) -> ParseResult<FilterValue> {
     try_literal("htmlEscape", reader)?;
     Ok(FilterValue::HtmlEscape)
@@ -187,8 +195,25 @@ fn location_filter(reader: &mut Reader) -> ParseResult<FilterValue> {
 fn nth_filter(reader: &mut Reader) -> ParseResult<FilterValue> {
     try_literal("nth", reader)?;
     let space0 = one_or_more_spaces(reader)?;
-    let n = integer(reader)?;
+    let n = integer_value(reader)?;
     Ok(FilterValue::Nth { space0, n })
+}
+
+fn integer_value(reader: &mut Reader) -> ParseResult<IntegerValue> {
+    let start = reader.cursor();
+    match integer(reader) {
+        Ok(v) => Ok(IntegerValue::Literal(v)),
+        Err(_) => {
+            reader.seek(start);
+            let placeholder = placeholder::parse(reader).map_err(|e| {
+                let kind = ParseErrorKind::Expecting {
+                    value: "integer".to_string(),
+                };
+                ParseError::new(e.pos, false, kind)
+            })?;
+            Ok(IntegerValue::Placeholder(placeholder))
+        }
+    }
 }
 
 fn regex_filter(reader: &mut Reader) -> ParseResult<FilterValue> {

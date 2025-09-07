@@ -33,14 +33,15 @@ use crate::http::certificate::Certificate;
 use crate::http::curl_cmd::CurlCmd;
 use crate::http::debug::log_body;
 use crate::http::header::{
-    HeaderVec, ACCEPT_ENCODING, AUTHORIZATION, CONTENT_TYPE, EXPECT, LOCATION, USER_AGENT,
+    HeaderVec, ACCEPT_ENCODING, AUTHORIZATION, CONTENT_TYPE, EXPECT, LOCATION, SET_COOKIE,
+    USER_AGENT,
 };
 use crate::http::ip::IpAddr;
 use crate::http::options::ClientOptions;
 use crate::http::timings::Timings;
 use crate::http::url::Url;
 use crate::http::{
-    easy_ext, Call, Cookie, FileParam, Header, HttpError, HttpVersion, IpResolve, Method,
+    easy_ext, Body, Call, Cookie, FileParam, Header, HttpError, HttpVersion, IpResolve, Method,
     MultipartParam, Param, Request, RequestCookie, RequestSpec, RequestedHttpVersion, Response,
     Verbosity,
 };
@@ -120,11 +121,17 @@ impl Client {
             let redirect_method = redirect_method(status, &request_spec.method);
             let mut headers = request_spec.headers;
 
-            // When following redirection, we filter `AUTHORIZATION` header unless explicitly told
-            // to trust the redirected host with `--location-trusted`.
+            // When following redirection, we filter `Authorization` and `Set-Cookie` headers if the
+            // hostname changes unless the user explicitly trusts the redirected host with `--location-trusted`.
+            // <https://curl.se/libcurl/c/CURLOPT_FOLLOWLOCATION.html>:
+            //
+            // > By default, libcurl only sends Authentication: or explicitly set Cookie: headers
+            // > to the initial host given in the original URL, to avoid leaking username + password
+            // > to other sites.
             let host_changed = request_url.host() != redirect_url.host();
             if host_changed && !options.follow_location_trusted {
                 headers.retain(|h| !h.name_eq(AUTHORIZATION));
+                headers.retain(|h| !h.name_eq(SET_COOKIE));
                 options.user = None;
             }
 
@@ -134,21 +141,21 @@ impl Client {
             // > When libcurl switches method to GET, it then uses that method without sending any
             // > request body. If it does not change the method, it sends the subsequent request the
             // > same way as the previous one; including the request body if one was provided.
-            if redirect_method != request_spec.method {
-                request_spec = RequestSpec {
-                    method: redirect_method,
-                    url: redirect_url,
-                    headers,
-                    ..Default::default()
-                };
+            let (form, multipart, body) = if redirect_method != request_spec.method {
+                (vec![], vec![], Body::Binary(vec![]))
             } else {
-                request_spec = RequestSpec {
-                    method: redirect_method,
-                    url: redirect_url,
-                    headers,
-                    ..request_spec
-                };
-            }
+                (request_spec.form, request_spec.multipart, request_spec.body)
+            };
+            request_spec = RequestSpec {
+                method: redirect_method,
+                url: redirect_url,
+                headers,
+                form,
+                multipart,
+                body,
+                cookies: request_spec.cookies,
+                ..Default::default()
+            };
         }
         Ok(calls)
     }
@@ -172,7 +179,7 @@ impl Client {
         let verbose = options.verbosity.is_some();
         let very_verbose = options.verbosity == Some(Verbosity::VeryVerbose);
         let mut request_headers = HeaderVec::new();
-        let mut status_lines = vec![];
+        let mut status_lines = None;
         let mut response_headers = vec![];
         let has_body_data = !request_spec.body.bytes().is_empty()
             || !request_spec.form.is_empty()
@@ -243,7 +250,7 @@ impl Client {
             transfer.header_function(|h| {
                 if let Some(s) = decode_header(h) {
                     if s.starts_with("HTTP/") {
-                        status_lines.push(s);
+                        status_lines = Some(s);
                     } else {
                         response_headers.push(s);
                     }
@@ -280,8 +287,7 @@ impl Client {
         }
 
         let status = self.handle.response_code()?;
-        // TODO: explain why status_lines is Vec ?
-        let version = match status_lines.last() {
+        let version = match &status_lines {
             Some(status_line) => self.parse_response_version(status_line)?,
             None => return Err(HttpError::CouldNotParseResponse),
         };
@@ -460,6 +466,16 @@ impl Client {
         if let Some(pinned_pub_key) = &options.pinned_pub_key {
             self.handle.pinned_public_key(pinned_pub_key)?;
         }
+        if options.ntlm || options.negotiate {
+            let mut auth = easy::Auth::new();
+            if options.ntlm {
+                auth.ntlm(true);
+            }
+            if options.negotiate {
+                auth.gssnegotiate(true);
+            }
+            self.handle.http_auth(&auth)?;
+        }
 
         self.set_ssl_options(options.ssl_no_revoke)?;
 
@@ -541,14 +557,14 @@ impl Client {
         // implicitly on this request.
         if !headers.contains_key(CONTENT_TYPE) {
             if let Some(s) = implicit_content_type {
-                list.append(&format!("{}: {s}", CONTENT_TYPE))?;
+                list.append(&format!("{CONTENT_TYPE}: {s}"))?;
             } else {
                 // We remove default `Content-Type` headers added by curl because we want to
                 // explicitly manage this header.
                 // For instance, with --data option, curl will send a `Content-type: application/x-www-form-urlencoded`
                 // header. From <https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html>, we can delete
                 // the headers added by libcurl by adding a header with no content.
-                list.append(&format!("{}:", CONTENT_TYPE))?;
+                list.append(&format!("{CONTENT_TYPE}:"))?;
             }
         }
 
@@ -560,7 +576,7 @@ impl Client {
         if !headers.contains_key(EXPECT) && options.aws_sigv4.is_none() {
             // We remove default Expect headers added by curl because we want to explicitly manage
             // this header.
-            list.append(&format!("{}:", EXPECT))?;
+            list.append(&format!("{EXPECT}:"))?;
         }
 
         if !headers.contains_key(USER_AGENT) {
@@ -571,14 +587,23 @@ impl Client {
                     format!("hurl/{pkg_version}")
                 }
             };
-            list.append(&format!("{}: {user_agent}", USER_AGENT))?;
+            list.append(&format!("{USER_AGENT}: {user_agent}"))?;
         }
 
         if let Some(user) = &options.user {
-            if options.aws_sigv4.is_some() {
+            if options.aws_sigv4.is_some() || options.ntlm || options.negotiate {
                 // curl's aws_sigv4 support needs to know the username and password for the
                 // request, as it uses those values to calculate the Authorization header for the
                 // AWS V4 signature.
+                //
+                // --ntlm requires a username and password to be provided in order to complete the
+                // authentication process. With curl, this would be `-u username:password`
+                //
+                // --negotiate requires a username and password, though they are not used.
+                // From the curl man page:
+                // > When using this option, you must also provide a fake `-u, --user` option to
+                // > activate the authentication code properly. Sending a '-u :' is enough, as the
+                // > username and password from the `-u, --user` option are not actually used.
                 if let Some((username, password)) = user.split_once(':') {
                     self.handle.username(username)?;
                     self.handle.password(password)?;
@@ -587,12 +612,12 @@ impl Client {
                 let user = user.as_bytes();
                 let authorization = general_purpose::STANDARD.encode(user);
                 if !headers.contains_key(AUTHORIZATION) {
-                    list.append(&format!("{}: Basic {authorization}", AUTHORIZATION))?;
+                    list.append(&format!("{AUTHORIZATION}: Basic {authorization}"))?;
                 }
             }
         }
         if options.compressed && !headers.contains_key(ACCEPT_ENCODING) {
-            list.append(&format!("{}: gzip, deflate, br", ACCEPT_ENCODING))?;
+            list.append(&format!("{ACCEPT_ENCODING}: gzip, deflate, br"))?;
         }
 
         self.handle.http_headers(list)?;
@@ -840,7 +865,7 @@ pub fn all_cookies(cookie_storage: &[Cookie], request_spec: &RequestSpec) -> Vec
 }
 
 /// Matches cookie for a given URL.
-pub fn match_cookie(cookie: &Cookie, url: &Url) -> bool {
+fn match_cookie(cookie: &Cookie, url: &Url) -> bool {
     if let Some(domain) = url.domain() {
         if cookie.include_subdomain == "FALSE" {
             if cookie.domain != domain {
@@ -902,16 +927,10 @@ fn split_lines(data: &[u8]) -> Vec<String> {
 }
 
 /// Decodes optionally header value as text with UTF-8 or ISO-8859-1 encoding.
-pub fn decode_header(data: &[u8]) -> Option<String> {
+fn decode_header(data: &[u8]) -> Option<String> {
     match str::from_utf8(data) {
         Ok(s) => Some(s.to_string()),
-        Err(_) => match ISO_8859_1.decode(data, DecoderTrap::Strict) {
-            Ok(s) => Some(s),
-            Err(_) => {
-                println!("Error decoding header both UTF-8 and ISO-8859-1 {data:?}");
-                None
-            }
-        },
+        Err(_) => ISO_8859_1.decode(data, DecoderTrap::Strict).ok(),
     }
 }
 

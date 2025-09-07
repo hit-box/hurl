@@ -24,9 +24,11 @@ ipv6: false
 limit-rate: 1000
 max-redirs: 10
 max-time: 100s
+negotiate: false
 netrc: false
 netrc-file: netrcfile
 netrc-optional: false
+ntlm: false
 output: output.txt
 path-as-is: false
 pinnedpubkey: pinnedpubkeyfile
@@ -75,9 +77,11 @@ ipv6: {{ipv6}}
 limit-rate: {{limit-rate}}
 max-redirs: {{max-redirs}}
 max-time: {{max-time}}
+negotiate: {{negotiate}}
 netrc: {{netrc}}
 netrc-file: {{netrc-file}}
 netrc-optional: {{netrc-optional}}
+ntlm: {{ntlm}}
 output: {{output}}
 path-as-is: {{path-as-is}}
 pinnedpubkey: {{pinnedpubkey}}

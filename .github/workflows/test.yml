@@ -21,14 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install Prerequisites
       run: bin/install_prerequisites_ubuntu.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Activate python3 venv
@@ -55,14 +55,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install Rust
       run: bin/install_rust.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Environment
@@ -77,14 +77,14 @@ jobs:
         rust: [stable]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install Prerequisites
       run: bin/install_prerequisites_ubuntu.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Activate python3 venv
@@ -132,14 +132,14 @@ jobs:
         rust: [stable]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install Prerequisites
       run: bin/install_prerequisites_ubuntu.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Activate python3 venv
@@ -174,7 +174,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -216,7 +216,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -265,7 +265,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -316,7 +316,7 @@ jobs:
         rust: [stable]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -365,7 +365,7 @@ jobs:
         rust: [stable]
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -417,7 +417,7 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -425,14 +425,14 @@ jobs:
       run: |
         .\bin\install_rust.ps1
     - name: Manage vcpkg cache
-      uses: actions/cache@v4.2.3
+      uses: actions/cache@v4.2.4
       with:
         path: C:\vcpkg
         key: ${{ runner.os }}-test-windows-x64
     - name: Install prerequisites
       run: .\bin\install_prerequisites_windows.ps1
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Environment
@@ -459,12 +459,12 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Setup wsl Ubuntu
-      uses: Vampire/setup-wsl@v5.0.1
+      uses: Vampire/setup-wsl@v6.0.0
       with:
         distribution: Ubuntu-22.04
         wsl-version: 2

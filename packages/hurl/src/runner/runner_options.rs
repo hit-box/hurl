@@ -50,10 +50,12 @@ pub struct RunnerOptionsBuilder {
     max_recv_speed: Option<BytesPerSec>,
     max_redirect: Count,
     max_send_speed: Option<BytesPerSec>,
+    negotiate: bool,
     netrc: bool,
     netrc_file: Option<String>,
     netrc_optional: bool,
     no_proxy: Option<String>,
+    ntlm: bool,
     output: Option<Output>,
     path_as_is: bool,
     pinned_pub_key: Option<String>,
@@ -100,10 +102,12 @@ impl Default for RunnerOptionsBuilder {
             max_recv_speed: None,
             max_redirect: Count::Finite(50),
             max_send_speed: None,
+            negotiate: false,
             netrc: false,
             netrc_file: None,
             netrc_optional: false,
             no_proxy: None,
+            ntlm: false,
             output: None,
             path_as_is: false,
             pinned_pub_key: None,
@@ -315,6 +319,12 @@ impl RunnerOptionsBuilder {
         self
     }
 
+    /// Sets the HTTP Negotiate (SPNEGO) authentication flag.
+    pub fn negotiate(&mut self, negotiate: bool) -> &mut Self {
+        self.negotiate = negotiate;
+        self
+    }
+
     /// Sets the netrc flag.
     pub fn netrc(&mut self, netrc: bool) -> &mut Self {
         self.netrc = netrc;
@@ -336,6 +346,12 @@ impl RunnerOptionsBuilder {
     /// Sets list of hosts which do not use a proxy.
     pub fn no_proxy(&mut self, no_proxy: Option<String>) -> &mut Self {
         self.no_proxy = no_proxy;
+        self
+    }
+
+    /// Enables HTTP NTLM authentication.
+    pub fn ntlm(&mut self, ntlm: bool) -> &mut Self {
+        self.ntlm = ntlm;
         self
     }
 
@@ -472,10 +488,12 @@ impl RunnerOptionsBuilder {
             max_recv_speed: self.max_recv_speed,
             max_redirect: self.max_redirect,
             max_send_speed: self.max_send_speed,
+            negotiate: self.negotiate,
             netrc: self.netrc,
             netrc_file: self.netrc_file.clone(),
             netrc_optional: self.netrc_optional,
             no_proxy: self.no_proxy.clone(),
+            ntlm: self.ntlm,
             output: self.output.clone(),
             path_as_is: self.path_as_is,
             pinned_pub_key: self.pinned_pub_key.clone(),
@@ -501,7 +519,7 @@ impl RunnerOptionsBuilder {
 ///
 /// Most options are used to configure the HTTP client used for running requests, while other
 /// are used to configure asserts settings, output etc....
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct RunnerOptions {
     /// Allow reusing internal connections.
     pub(crate) allow_reuse: bool,
@@ -552,6 +570,8 @@ pub struct RunnerOptions {
     pub(crate) max_redirect: Count,
     /// Set the maximum upload speed.
     pub(crate) max_send_speed: Option<BytesPerSec>,
+    /// Enables HTTP Negotiate (SPNEGO) authentication.
+    pub(crate) negotiate: bool,
     /// Sets the netrc flag.
     pub(crate) netrc: bool,
     /// Sets the netrc file.
@@ -560,6 +580,8 @@ pub struct RunnerOptions {
     pub(crate) netrc_optional: bool,
     /// Sets list of hosts which do not use a proxy.
     pub(crate) no_proxy: Option<String>,
+    /// Enables HTTP NTLM authentication.
+    pub(crate) ntlm: bool,
     /// Specifies the file to output the HTTP response.
     pub(crate) output: Option<Output>,
     pub(crate) path_as_is: bool,
@@ -600,3 +622,112 @@ impl Default for RunnerOptions {
         RunnerOptionsBuilder::default().build()
     }
 }
+
+// FIXME: Remove this manual implementation in favour of a derive
+// when we have removed the `post_entry` and `pre_entry` fields,
+// which for the time being had to be left out of a derived comparison
+// due to the `function pointer comparisons do not produce meaningful results` error.
+// See https://github.com/Orange-OpenSource/hurl/issues/3763 and https://github.com/Orange-OpenSource/hurl/pull/4232.
+impl PartialEq for RunnerOptions {
+    fn eq(&self, other: &Self) -> bool {
+        let Self {
+            allow_reuse,
+            aws_sigv4,
+            cacert_file,
+            client_cert_file,
+            client_key_file,
+            compressed,
+            connect_timeout,
+            connects_to,
+            delay,
+            context_dir,
+            continue_on_error,
+            cookie_input_file,
+            follow_location,
+            follow_location_trusted,
+            from_entry,
+            headers,
+            http_version,
+            ignore_asserts,
+            ip_resolve,
+            insecure,
+            max_filesize,
+            max_recv_speed,
+            max_redirect,
+            max_send_speed,
+            negotiate,
+            netrc,
+            netrc_file,
+            netrc_optional,
+            no_proxy,
+            ntlm,
+            output,
+            path_as_is,
+            pinned_pub_key,
+            proxy,
+            repeat,
+            resolves,
+            retry,
+            retry_interval,
+            skip,
+            ssl_no_revoke,
+            timeout,
+            to_entry,
+            unix_socket,
+            user,
+            user_agent,
+            // These fields are excluded from comparison due to the
+            // `function pointer comparisons do not produce meaningful results` error.
+            pre_entry: _,
+            post_entry: _,
+        } = self;
+
+        allow_reuse == &other.allow_reuse
+            && aws_sigv4 == &other.aws_sigv4
+            && cacert_file == &other.cacert_file
+            && client_cert_file == &other.client_cert_file
+            && client_key_file == &other.client_key_file
+            && compressed == &other.compressed
+            && connect_timeout == &other.connect_timeout
+            && connects_to == &other.connects_to
+            && delay == &other.delay
+            && context_dir == &other.context_dir
+            && continue_on_error == &other.continue_on_error
+            && cookie_input_file == &other.cookie_input_file
+            && follow_location == &other.follow_location
+            && follow_location_trusted == &other.follow_location_trusted
+            && from_entry == &other.from_entry
+            && headers == &other.headers
+            && http_version == &other.http_version
+            && ignore_asserts == &other.ignore_asserts
+            && ip_resolve == &other.ip_resolve
+            && insecure == &other.insecure
+            && max_filesize == &other.max_filesize
+            && max_recv_speed == &other.max_recv_speed
+            && max_redirect == &other.max_redirect
+            && max_send_speed == &other.max_send_speed
+            && negotiate == &other.negotiate
+            && netrc == &other.netrc
+            && netrc_file == &other.netrc_file
+            && netrc_optional == &other.netrc_optional
+            && no_proxy == &other.no_proxy
+            && ntlm == &other.ntlm
+            && output == &other.output
+            && path_as_is == &other.path_as_is
+            && pinned_pub_key == &other.pinned_pub_key
+            && proxy == &other.proxy
+            && repeat == &other.repeat
+            && resolves == &other.resolves
+            && retry == &other.retry
+            && retry_interval == &other.retry_interval
+            && skip == &other.skip
+            && ssl_no_revoke == &other.ssl_no_revoke
+            && timeout == &other.timeout
+            && to_entry == &other.to_entry
+            && unix_socket == &other.unix_socket
+            && user == &other.user
+            && user_agent == &other.user_agent
+    }
+}
+
+impl Eq for RunnerOptions {}

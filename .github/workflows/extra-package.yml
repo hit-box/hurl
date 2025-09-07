@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: true
           fetch-depth: 1
@@ -51,7 +51,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -69,7 +69,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: true 
           fetch-depth: 1
@@ -78,4 +78,4 @@ jobs:
         run: |
           Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile .\wingetcreate.exe
           .\wingetcreate.exe version
-          .\bin\release\push_package_to_winget.ps1 "$env:RELEASE_VERSION" "$env:LEPAPAREIL_WINGET_TOKEN"
+          .\bin\release\push_package_to_winget.ps1 "$env:RELEASE_VERSION" "$env:WINGET_TOKEN"

@@ -10,6 +10,9 @@
 
 GET http://localhost:8000/follow-redirect
 Accept: text/plain
+[Query]
+# We add a query param to test that query params strings are not forwarded
+foo: bar
 HTTP 200
 [Asserts]
 redirects count == 2
@@ -47,6 +50,8 @@ url == "http://localhost:8000/follow-redirect/bar"
 # Do not forward `Authorization` header to a different host
 GET http://localhost:8000/follow-redirect-basic-auth?change_host=true
 Authorization: Basic Ym9iQGVtYWlsLmNvbTpzZWNyZXQ=
+[Cookies]
+fruit: lemon
 HTTP 200
 [Asserts]
 redirects count == 1
@@ -60,6 +65,8 @@ header "Location" not exists
 # Back checks will insure that `Authorization` is forwarded.
 GET http://localhost:8000/follow-redirect-basic-auth?change_host=false
 Authorization: Basic Ym9iQGVtYWlsLmNvbTpzZWNyZXQ=
+[Cookies]
+fruit: lemon
 HTTP 200
 [Asserts]
 redirects count == 1
@@ -73,6 +80,8 @@ header "Location" not exists
 GET http://localhost:8000/follow-redirect-basic-auth?change_host=true
 [Options]
 user: bob@email.com:secret
+[Cookies]
+fruit: lemon
 HTTP 200
 [Asserts]
 redirects count == 1
@@ -85,6 +94,8 @@ header "Location" not exists
 GET http://localhost:8000/follow-redirect-basic-auth?change_host=false
 [Options]
 user: bob@email.com:secret
+[Cookies]
+fruit: lemon
 HTTP 200
 [Asserts]
 redirects count == 1
@@ -98,6 +109,8 @@ header "Location" not exists
 GET http://localhost:8000/follow-redirect-basic-auth?change_host=true
 [BasicAuth]
 bob@email.com: secret
+[Cookies]
+fruit: lemon
 HTTP 200
 [Asserts]
 redirects count == 1
@@ -110,6 +123,8 @@ header "Location" not exists
 GET http://localhost:8000/follow-redirect-basic-auth?change_host=false
 [BasicAuth]
 bob@email.com: secret
+[Cookies]
+fruit: lemon
 HTTP 200
 [Asserts]
 redirects count == 1

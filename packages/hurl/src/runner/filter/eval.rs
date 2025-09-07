@@ -26,7 +26,7 @@ use crate::runner::filter::days_after_now::eval_days_after_now;
 use crate::runner::filter::days_before_now::eval_days_before_now;
 use crate::runner::filter::decode::eval_decode;
 use crate::runner::filter::first::eval_first;
-use crate::runner::filter::format::eval_format;
+use crate::runner::filter::format::eval_date_format;
 use crate::runner::filter::html_escape::eval_html_escape;
 use crate::runner::filter::html_unescape::eval_html_unescape;
 use crate::runner::filter::jsonpath::eval_jsonpath;
@@ -51,7 +51,7 @@ use crate::runner::{RunnerError, RunnerErrorKind, Value, VariableSet};
 /// Apply successive `filter` to an input `value`.
 /// Specify whether they are executed  `in_assert` or not.
 pub fn eval_filters(
-    filters: &[Filter],
+    filters: &[&Filter],
     value: &Value,
     variables: &VariableSet,
     in_assert: bool,
@@ -95,7 +95,10 @@ pub fn eval_filter(
         }
         FilterValue::First => eval_first(value, filter.source_info, in_assert),
         FilterValue::Format { fmt, .. } => {
-            eval_format(value, fmt, variables, filter.source_info, in_assert)
+            eval_date_format(value, fmt, variables, filter.source_info, in_assert)
+        }
+        FilterValue::DateFormat { fmt, .. } => {
+            eval_date_format(value, fmt, variables, filter.source_info, in_assert)
         }
         FilterValue::HtmlEscape => eval_html_escape(value, filter.source_info, in_assert),
         FilterValue::HtmlUnescape => eval_html_unescape(value, filter.source_info, in_assert),
@@ -107,7 +110,7 @@ pub fn eval_filter(
         FilterValue::Regex {
             value: regex_value, ..
         } => eval_regex(value, regex_value, variables, filter.source_info, in_assert),
-        FilterValue::Nth { n, .. } => eval_nth(value, filter.source_info, in_assert, n.as_i64()),
+        FilterValue::Nth { n, .. } => eval_nth(value, n, variables, filter.source_info, in_assert),
         FilterValue::Replace {
             old_value,
             new_value,
@@ -165,7 +168,7 @@ mod tests {
 
         assert_eq!(
             eval_filters(
-                &[Filter {
+                &[&Filter {
                     source_info: SourceInfo::new(Pos::new(1, 1), Pos::new(1, 6)),
                     value: FilterValue::Count,
                 }],

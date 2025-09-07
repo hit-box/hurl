@@ -125,21 +125,21 @@ fn headers_params(
             && content_type != "multipart/form-data"
         {
             args.push("--header".to_string());
-            args.push(format!("'{}: {content_type}'", CONTENT_TYPE));
+            args.push(format!("'{CONTENT_TYPE}: {content_type}'"));
         }
     } else if !body.bytes().is_empty() {
         match body {
             Body::Text(_) => {
                 args.push("--header".to_string());
-                args.push(format!("'{}:'", CONTENT_TYPE));
+                args.push(format!("'{CONTENT_TYPE}:'"));
             }
             Body::Binary(_) => {
                 args.push("--header".to_string());
-                args.push(format!("'{}: application/octet-stream'", CONTENT_TYPE));
+                args.push(format!("'{CONTENT_TYPE}: application/octet-stream'"));
             }
             Body::File(_, _) => {
                 args.push("--header".to_string());
-                args.push(format!("'{}:'", CONTENT_TYPE));
+                args.push(format!("'{CONTENT_TYPE}:'"));
             }
         }
     }
@@ -452,6 +452,9 @@ impl ClientOptions {
             arguments.push("--max-time".to_string());
             arguments.push(self.timeout.as_secs().to_string());
         }
+        if self.negotiate {
+            arguments.push("--negotiate".to_string());
+        }
         if let Some(filename) = &self.netrc_file {
             arguments.push("--netrc-file".to_string());
             arguments.push(format!("'{filename}'"));
@@ -461,6 +464,9 @@ impl ClientOptions {
         }
         if self.netrc {
             arguments.push("--netrc".to_string());
+        }
+        if self.ntlm {
+            arguments.push("--ntlm".to_string());
         }
         if self.path_as_is {
             arguments.push("--path-as-is".to_string());
@@ -659,9 +665,11 @@ mod tests {
             max_recv_speed: Some(BytesPerSec(8000)),
             max_redirect: Count::Finite(10),
             max_send_speed: Some(BytesPerSec(8000)),
+            negotiate: true,
             netrc: false,
             netrc_file: Some("/var/run/netrc".to_string()),
             netrc_optional: true,
+            ntlm: true,
             path_as_is: true,
             pinned_pub_key: None,
             proxy: Some("localhost:3128".to_string()),
@@ -696,8 +704,10 @@ mod tests {
         --limit-rate 8000 \
         --max-redirs 10 \
         --max-time 10 \
+        --negotiate \
         --netrc-file '/var/run/netrc' \
         --netrc-optional \
+        --ntlm \
         --path-as-is \
         --proxy 'localhost:3128' \
         --resolve foo.com:80:192.168.0.1 \

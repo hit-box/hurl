@@ -21,6 +21,38 @@ pub fn compressed() -> clap::Arg {
     clap::Arg::new("compressed").long("compressed").num_args(0)
 }
 
+pub fn cookies() -> clap::Arg {
+    clap::Arg::new("cookies")
+        .long("cookie")
+        .short('b')
+        .value_name("NAME1=VALUE1; NAME2=VALUE2")
+        .value_parser(|value: &str| {
+            if value.trim().is_empty() {
+                return Err("empty value provided".to_string());
+            }
+
+            let (valid_cookies, invalid_cookies): (Vec<_>, Vec<_>) = value
+                .split(';')
+                .map(str::trim)
+                .filter(|c| !c.is_empty())
+                .partition(|c| c.contains('='));
+
+            if invalid_cookies.is_empty() {
+                Ok(valid_cookies.join("; "))
+            } else {
+                match invalid_cookies.as_slice() {
+                    [_] => Err("invalid cookie pair provided".to_string()),
+                    _ => Err(format!(
+                        "invalid cookie pairs provided: [{}]",
+                        invalid_cookies.join(", ")
+                    )),
+                }
+            }
+        })
+        .action(ArgAction::Append)
+        .num_args(1)
+}
+
 pub fn data() -> clap::Arg {
     clap::Arg::new("data")
         .long("data")
@@ -80,6 +112,14 @@ pub fn method() -> clap::Arg {
         .num_args(1)
 }
 
+pub fn negotiate() -> clap::Arg {
+    clap::Arg::new("negotiate").long("negotiate").num_args(0)
+}
+
+pub fn ntlm() -> clap::Arg {
+    clap::Arg::new("ntlm").long("ntlm").num_args(0)
+}
+
 pub fn retry() -> clap::Arg {
     clap::Arg::new("retry")
         .long("retry")
@@ -100,6 +140,10 @@ pub fn url_param() -> clap::Arg {
         .help("Sets the url to use")
         .required(false)
         .num_args(1)
+}
+
+pub fn user() -> clap::Arg {
+    clap::Arg::new("user").long("user").short('u').num_args(1)
 }
 
 pub fn verbose() -> clap::Arg {

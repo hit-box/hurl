@@ -20,7 +20,7 @@ use std::time::Instant;
 
 use chrono::Utc;
 use hurl_core::ast::{Entry, OptionKind, SourceInfo};
-use hurl_core::error::DisplaySourceError;
+use hurl_core::error::{DisplaySourceError, OutputFormat};
 use hurl_core::input::Input;
 use hurl_core::parser;
 use hurl_core::typing::Count;
@@ -38,6 +38,8 @@ use crate::util::term::{Stderr, Stdout, WriteMode};
 /// run completion. The success or failure of the run (due to assertions checks, runtime failures
 /// etc...) can be read in the [`HurlResult`] `success` field. If `content` is not syntactically
 /// correct, a parsing error is returned. This is the only possible way for this function to fail.
+///
+/// The caller must ensure that `content` do not start with [BOM](https://en.wikipedia.org/wiki/Byte_order_mark).
 ///
 /// `filename` indicates an optional file source, used when displaying errors.
 ///
@@ -101,9 +103,16 @@ pub fn run(
     let hurl_file = parser::parse_hurl_file(content);
     let hurl_file = match hurl_file {
         Ok(h) => h,
-        Err(e) => {
-            logger.error_parsing_rich(content, filename, &e);
-            return Err(e.description());
+        Err(error) => {
+            let filename = filename.map_or(String::new(), |f| f.to_string());
+            let message = error.render(
+                &filename,
+                content,
+                None,
+                OutputFormat::Terminal(logger.color),
+            );
+            logger.error_rich(&message);
+            return Err(error.description());
         }
     };
 
@@ -554,7 +563,14 @@ fn log_errors(
         }
     }
     entry_result.errors.iter().for_each(|error| {
-        logger.error_runtime_rich(content, filename, error, entry_result.source_info);
+        let filename = filename.map_or(String::new(), |f| f.to_string());
+        let message = error.render(
+            &filename,
+            content,
+            Some(entry_result.source_info),
+            OutputFormat::Terminal(logger.color),
+        );
+        logger.error_rich(&message);
     });
 }
 

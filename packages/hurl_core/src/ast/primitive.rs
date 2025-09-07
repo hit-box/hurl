@@ -58,12 +58,12 @@ impl ToSource for MultilineString {
         let att = self
             .attributes
             .iter()
-            .map(|att| att.to_source())
+            .map(|att| att.identifier())
             .collect::<Vec<_>>()
             .join(",");
         source.push_str("```");
         source.push_str(self.lang());
-        if !self.lang().is_empty() && !self.attributes.is_empty() {
+        if !self.lang().is_empty() && self.has_attributes() {
             source.push(',');
         }
         source.push_str(&att);
@@ -120,17 +120,17 @@ impl ToSource for MultilineStringKind {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MultilineStringAttribute {
     Escape,
     NoVariable,
 }
 
-impl ToSource for MultilineStringAttribute {
-    fn to_source(&self) -> SourceString {
+impl MultilineStringAttribute {
+    pub fn identifier(&self) -> &'static str {
         match self {
-            MultilineStringAttribute::Escape => "escape".to_source(),
-            MultilineStringAttribute::NoVariable => "novariable".to_source(),
+            MultilineStringAttribute::Escape => "escape",
+            MultilineStringAttribute::NoVariable => "novariable",
         }
     }
 }
@@ -239,6 +239,11 @@ impl Template {
             source_info,
         }
     }
+
+    /// Returns true if this template is empty.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -273,6 +278,12 @@ pub struct Comment {
     pub source_info: SourceInfo,
 }
 
+impl ToSource for Comment {
+    fn to_source(&self) -> SourceString {
+        format!("#{}", self.value).to_source()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Whitespace {
     pub value: String,
@@ -301,9 +312,9 @@ pub enum Number {
 impl fmt::Display for Number {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Number::Float(value) => write!(f, "{}", value),
-            Number::Integer(value) => write!(f, "{}", value),
-            Number::BigInteger(value) => write!(f, "{}", value),
+            Number::Float(value) => write!(f, "{value}"),
+            Number::Integer(value) => write!(f, "{value}"),
+            Number::BigInteger(value) => write!(f, "{value}"),
         }
     }
 }
@@ -538,8 +549,8 @@ pub enum ExprKind {
 impl fmt::Display for ExprKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ExprKind::Variable(variable) => write!(f, "{}", variable),
-            ExprKind::Function(function) => write!(f, "{}", function),
+            ExprKind::Variable(variable) => write!(f, "{variable}"),
+            ExprKind::Function(function) => write!(f, "{function}"),
         }
     }
 }

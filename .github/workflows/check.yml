@@ -22,7 +22,7 @@ jobs:
     steps:
 
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -48,7 +48,7 @@ jobs:
       run: bin/check/hadolint.sh ./contrib/docker/Dockerfile
 
     - name: Install Python 3.12
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.12'
 
@@ -72,10 +72,12 @@ jobs:
         bin/check/zizmor.sh --github-token ${GITHUB_TOKEN} .github/workflows/*.yml
 
     - name: Check Rust version
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       if: always()
       run: |
         python3 -m pip install requests --quiet
-        bin/check/rust_version.py 7
+        bin/check/rust_version.py --token ${GITHUB_TOKEN} 7
 
     - name: Generated
       if: always()

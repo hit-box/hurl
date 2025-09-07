@@ -20,6 +20,7 @@ use std::path::Path;
 
 use hurl::parallel::job::{Job, JobResult};
 use hurl::parallel::runner::ParallelRunner;
+use hurl::pretty::PrettyMode;
 use hurl::runner::{HurlResult, Output, VariableSet};
 use hurl::util::term::{Stdout, WriteMode};
 use hurl::{output, parallel, runner};
@@ -127,12 +128,13 @@ fn print_output(
             hurl_result,
             options.include,
             options.color,
+            options.pretty,
             options.output.as_ref(),
             stdout,
             append,
         );
         if let Err(e) = result {
-            return Err(CliError::OutputWrite(e.to_string(
+            return Err(CliError::OutputWrite(e.render(
                 &filename.to_string(),
                 content,
                 None,
@@ -155,7 +157,7 @@ fn print_output(
             } else {
                 "stdout".to_string()
             };
-            let message = format!("{filename} can not be written ({})", e);
+            let message = format!("{filename} can not be written ({e})");
             return Err(CliError::OutputWrite(message));
         }
     }
@@ -182,9 +184,10 @@ pub fn run_par(
     options.secrets.iter().for_each(|(name, value)| {
         variables.insert_secret(name.clone(), value.clone());
     });
-    let output_type = options
-        .output_type
-        .to_output_type(options.include, options.color);
+    let output_type =
+        options
+            .output_type
+            .to_output_type(options.include, options.color, options.pretty);
     let max_width = terminal_size::terminal_size().map(|(w, _)| w.0 as usize);
     let jobs = files
         .iter()
@@ -221,11 +224,17 @@ impl From<JobResult> for HurlRun {
 }
 
 impl cli::OutputType {
-    fn to_output_type(&self, include_headers: bool, color: bool) -> parallel::runner::OutputType {
+    fn to_output_type(
+        &self,
+        include_headers: bool,
+        color: bool,
+        pretty: PrettyMode,
+    ) -> parallel::runner::OutputType {
         match self {
             cli::OutputType::ResponseBody => parallel::runner::OutputType::ResponseBody {
                 include_headers,
                 color,
+                pretty,
             },
             cli::OutputType::Json => parallel::runner::OutputType::Json,
             cli::OutputType::NoOutput => parallel::runner::OutputType::NoOutput,

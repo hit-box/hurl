@@ -21,14 +21,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install prerequisites
       run: bin/install_prerequisites_ubuntu.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Activate python3 venv
@@ -66,12 +66,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Retrieve release-generic-linux-x64-artifacts
-      uses: actions/download-artifact@v4.3.0
+      uses: actions/download-artifact@v5.0.0
       with:
         name: release-generic-linux-x64-artifacts
         path: target/upload
@@ -120,12 +120,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Retrieve release-generic-linux-x64-artifacts
-      uses: actions/download-artifact@v4.3.0
+      uses: actions/download-artifact@v5.0.0
       with:
         name: release-generic-linux-x64-artifacts
         path: target/upload
@@ -172,12 +172,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Retrieve release-generic-linux-x64-artifacts
-      uses: actions/download-artifact@v4.3.0
+      uses: actions/download-artifact@v5.0.0
       with:
         name: release-generic-linux-x64-artifacts
         path: target/upload
@@ -186,7 +186,7 @@ jobs:
       with:
         image: archlinux
         options: --volume ${{ github.workspace }}:/work --workdir /work --privileged
-# Revert to libxml 2.13.8 that has a soname libxml2.so.2 required by our Ubuntu Hurl build.
+# Revert to libxml 2.13.8 that has a soname libxml2.so.2 required by our Ubuntu Hurl build (using `libxml2-legacy` package).
 # Starting from libxml 2.14, <https://gitlab.gnome.org/GNOME/libxml2/-/releases/v2.14.0>:
 #
 # > Binary compatibility is restricted to versions 2.14 or newer. On ELF systems, the soname was bumped from
@@ -200,7 +200,7 @@ jobs:
             bin/install_prerequisites_archlinux.sh
           echo "::endgroup::"
           echo "::group::Downgrade libxml2"
-          pacman --upgrade --nodeps --noconfirm https://archive.archlinux.org/packages/l/libxml2/libxml2-2.13.8-1-x86_64.pkg.tar.zst
+          pacman --sync --noconfirm libxml2-legacy
           echo "::endgroup::"
           echo "::group::Activate python3 venv"
             bin/activate_python3_venv.sh
@@ -235,12 +235,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Retrieve release-generic-linux-x64-artifacts
-      uses: actions/download-artifact@v4.3.0
+      uses: actions/download-artifact@v5.0.0
       with:
         name: release-generic-linux-x64-artifacts
         path: target/upload
@@ -289,12 +289,12 @@ jobs:
    runs-on: ubuntu-latest
    steps:
    - name: Checkout repository
-     uses: actions/checkout@v4.2.2
+     uses: actions/checkout@v5.0.0
      with:
        persist-credentials: false
        ref: ${{ inputs.branch }}
    - name: Set up Docker Buildx
-     uses: docker/setup-buildx-action@v3.10.0
+     uses: docker/setup-buildx-action@v3.11.1
    - name: Build docker images
      run: |
          echo "::group::Docker build prerequisites"
@@ -361,14 +361,14 @@ jobs:
     runs-on: ubuntu-22.04-arm
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install prerequisites
       run: bin/install_prerequisites_ubuntu.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Activate python3 venv
@@ -413,14 +413,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install Prerequisites
       run: bin/install_prerequisites_ubuntu.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Activate python3 venv
@@ -465,14 +465,14 @@ jobs:
     runs-on: ubuntu-22.04-arm
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
     - name: Install Prerequisites
       run: bin/install_prerequisites_ubuntu.sh
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Activate python3 venv
@@ -517,7 +517,7 @@ jobs:
     runs-on: macos-13
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -567,7 +567,7 @@ jobs:
     runs-on: macos-14
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -623,7 +623,7 @@ jobs:
         git config --global core.autocrlf false
         git config --global core.eol lf
     - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v5.0.0
       with:
         persist-credentials: false
         ref: ${{ inputs.branch }}
@@ -631,14 +631,14 @@ jobs:
       run: |
         .\bin\install_rust.ps1
     - name: Manage vcpkg cache
-      uses: actions/cache@v4.2.3
+      uses: actions/cache@v4.2.4
       with:
         path: C:\vcpkg
         key: ${{ runner.os }}-release-windows-x64
     - name: Install prerequisites
       run: .\bin\install_prerequisites_windows.ps1
     - name: Install Python 3.11
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.0.0
       with:
         python-version: '3.11'
     - name: Environment
@@ -684,11 +684,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: false
           ref: ${{ inputs.branch }}
-      - uses: actions/download-artifact@v4.3.0
+      - uses: actions/download-artifact@v5.0.0
         with:
           path: artifacts
       - name: Prerequisites

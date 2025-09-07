@@ -86,6 +86,7 @@ pub enum RunnerErrorKind {
     },
     FilterDecode(String),
     FilterInvalidEncoding(String),
+    /// Input of the filter is not valid, with a given reason.
     FilterInvalidInput(String),
     FilterInvalidFormatSpecifier(String),
     FilterMissingInput,
@@ -98,18 +99,19 @@ pub enum RunnerErrorKind {
         url: String,
         message: String,
     },
+    /// A XPath expression evaluation raised an error.
+    InvalidXPathEval,
+    /// One filter in the filter chains doesn't return value.
+    NoFilterResult,
+    /// A query on response doesn't return value.
     NoQueryResult,
     PossibleLoggedSecret,
     QueryHeaderNotFound,
     QueryInvalidJsonpathExpression {
         value: String,
     },
-    QueryInvalidXpathEval,
     QueryInvalidXml,
     QueryInvalidJson,
-    ReadOnlySecret {
-        name: String,
-    },
     TemplateVariableNotDefined {
         name: String,
     },
@@ -148,8 +150,10 @@ impl DisplaySourceError for RunnerError {
             RunnerErrorKind::FilterMissingInput => "Filter error".to_string(),
             RunnerErrorKind::Http(http_error) => http_error.description(),
             RunnerErrorKind::InvalidJson { .. } => "Invalid JSON".to_string(),
-            RunnerErrorKind::InvalidUrl { .. } => "Invalid URL".to_string(),
             RunnerErrorKind::InvalidRegex => "Invalid regex".to_string(),
+            RunnerErrorKind::InvalidUrl { .. } => "Invalid URL".to_string(),
+            RunnerErrorKind::InvalidXPathEval => "Invalid XPath expression".to_string(),
+            RunnerErrorKind::NoFilterResult => "Filter error".to_string(),
             RunnerErrorKind::NoQueryResult => "No query result".to_string(),
             RunnerErrorKind::PossibleLoggedSecret => "Invalid redacted secret".to_string(),
             RunnerErrorKind::QueryHeaderNotFound => "Header not found".to_string(),
@@ -158,8 +162,6 @@ impl DisplaySourceError for RunnerError {
                 "Invalid JSONPath".to_string()
             }
             RunnerErrorKind::QueryInvalidXml => "Invalid XML".to_string(),
-            RunnerErrorKind::QueryInvalidXpathEval => "Invalid XPath expression".to_string(),
-            RunnerErrorKind::ReadOnlySecret { .. } => "Readonly secret".to_string(),
             RunnerErrorKind::TemplateVariableNotDefined { .. } => "Undefined variable".to_string(),
             RunnerErrorKind::UnauthorizedFileAccess { .. } => {
                 "Unauthorized file access".to_string()
@@ -241,13 +243,13 @@ impl DisplaySourceError for RunnerError {
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
-            RunnerErrorKind::FilterInvalidInput(message) => {
-                let message = &format!("invalid filter input: {message}");
+            RunnerErrorKind::FilterInvalidInput(reason) => {
+                let message = &format!("invalid filter input: {reason}");
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
             RunnerErrorKind::FilterInvalidFormatSpecifier(format) => {
-                let message = &format!("<{format}> format is not supported");
+                let message = &format!("date format <{format}> is not supported");
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
@@ -266,18 +268,28 @@ impl DisplaySourceError for RunnerError {
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
-            RunnerErrorKind::InvalidUrl { url, message } => {
-                let message = &format!("invalid URL <{url}> ({message})");
-                let message = error::add_carets(message, self.source_info, content);
-                color_red_multiline_string(&message)
-            }
             RunnerErrorKind::InvalidRegex => {
                 let message = "regex expression is not valid";
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
+            RunnerErrorKind::InvalidUrl { url, message } => {
+                let message = &format!("invalid URL <{url}> ({message})");
+                let message = error::add_carets(message, self.source_info, content);
+                color_red_multiline_string(&message)
+            }
+            RunnerErrorKind::InvalidXPathEval => {
+                let message = "XPath expression is not valid";
+                let message = error::add_carets(message, self.source_info, content);
+                color_red_multiline_string(&message)
+            }
+            RunnerErrorKind::NoFilterResult => {
+                let message = "a filter didn't return any result";
+                let message = error::add_carets(message, self.source_info, content);
+                color_red_multiline_string(&message)
+            }
             RunnerErrorKind::NoQueryResult => {
-                let message = "The query didn't return any result";
+                let message = "query didn't return any result";
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
@@ -292,27 +304,17 @@ impl DisplaySourceError for RunnerError {
                 color_red_multiline_string(&message)
             }
             RunnerErrorKind::QueryInvalidJson => {
-                let message = "the HTTP response is not a valid JSON";
+                let message = "HTTP response is not a valid JSON";
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
             RunnerErrorKind::QueryInvalidJsonpathExpression { value } => {
-                let message = &format!("the JSONPath expression '{value}' is not valid");
+                let message = &format!("JSONPath expression '{value}' is not valid");
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
             RunnerErrorKind::QueryInvalidXml => {
-                let message = "the HTTP response is not a valid XML";
-                let message = error::add_carets(message, self.source_info, content);
-                color_red_multiline_string(&message)
-            }
-            RunnerErrorKind::QueryInvalidXpathEval => {
-                let message = "the XPath expression is not valid";
-                let message = error::add_carets(message, self.source_info, content);
-                color_red_multiline_string(&message)
-            }
-            RunnerErrorKind::ReadOnlySecret { name } => {
-                let message = &format!("secret '{name}' can't be reassigned");
+                let message = "HTTP response is not a valid XML";
                 let message = error::add_carets(message, self.source_info, content);
                 color_red_multiline_string(&message)
             }
@@ -453,7 +455,7 @@ mod tests {
             "\n 1 | GET http://unknown\n   |     ^^^^^^^^^^^^^^ (6) Could not resolve host: unknown\n   |"
         );
         assert_eq!(
-            error.to_string(
+            error.render(
                 filename,
                 content,
                 Some(entry_source_info),
@@ -470,6 +472,7 @@ mod tests {
 
     #[test]
     fn test_assert_error_status() {
+        // For the crate colored to output ANSI escape code in test environment.
         hurl_core::text::init_crate_colored();
 
         let content = r#"GET http://unknown
@@ -494,7 +497,7 @@ HTTP/1.0 200
         );
 
         assert_eq!(
-            error.to_string(
+            error.render(
                 filename,
                 content,
                 Some(entry_source_info),
@@ -521,17 +524,13 @@ xpath "strong(//head/title)" == "Hello"
         let filename = "test.hurl";
         let error_source_info = SourceInfo::new(Pos::new(4, 7), Pos::new(4, 29));
         let entry_source_info = SourceInfo::new(Pos::new(1, 1), Pos::new(1, 22));
-        let error = RunnerError::new(
-            error_source_info,
-            RunnerErrorKind::QueryInvalidXpathEval,
-            true,
-        );
+        let error = RunnerError::new(error_source_info, RunnerErrorKind::InvalidXPathEval, true);
         assert_eq!(
         &error.message(&lines).to_string(Format::Plain),
-        "\n 4 | xpath \"strong(//head/title)\" == \"Hello\"\n   |       ^^^^^^^^^^^^^^^^^^^^^^ the XPath expression is not valid\n   |"
+        "\n 4 | xpath \"strong(//head/title)\" == \"Hello\"\n   |       ^^^^^^^^^^^^^^^^^^^^^^ XPath expression is not valid\n   |"
     );
         assert_eq!(
-            error.to_string(
+            error.render(
                 filename,
                 content,
                 Some(entry_source_info),
@@ -543,7 +542,7 @@ xpath "strong(//head/title)" == "Hello"
    | GET http://example.com
    | ...
  4 | xpath "strong(//head/title)" == "Hello"
-   |       ^^^^^^^^^^^^^^^^^^^^^^ the XPath expression is not valid
+   |       ^^^^^^^^^^^^^^^^^^^^^^ XPath expression is not valid
    |"#
         );
     }
@@ -579,7 +578,7 @@ jsonpath "$.count" >= 5
         );
 
         assert_eq!(
-            error.to_string(
+            error.render(
                 filename,
                 content,
                 Some(entry_source_info),
@@ -620,7 +619,7 @@ HTTP/1.0 200
             "\n 4 | <p>Hello</p>\n   |   +\n   |"
         );
         assert_eq!(
-            error.to_string(
+            error.render(
                 filename,
                 content,
                 Some(entry_source_info),

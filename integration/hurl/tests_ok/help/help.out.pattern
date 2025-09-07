@@ -55,8 +55,12 @@ HTTP options:
           Maximum number of redirects allowed, -1 for unlimited redirects [default: 50]
   -m, --max-time <SECONDS>
           Maximum time allowed for the transfer [default: 300]
+      --negotiate
+          Tell Hurl to use Negotiate (SPNEGO) authentication
       --noproxy <HOST(S)>
           List of hosts which do not use proxy
+      --ntlm
+          Tell Hurl to use NTLM authentication
       --path-as-is
           Tell Hurl to not handle sequences of /../ or /./ in the given URL path
       --pinnedpubkey <HASHES>
@@ -84,7 +88,9 @@ Output options:
       --no-color               Do not colorize output
       --no-output              Suppress output. By default, Hurl outputs the body of the last
                                response
+      --no-pretty              Do not prettify response output
   -o, --output <FILE>          Write to FILE instead of stdout
+      --pretty                 Prettify JSON response output
       --progress-bar           Display a progress bar in test mode
   -v, --verbose                Turn on verbose
       --very-verbose           Turn on verbose output, including HTTP response and libcurl logs
@@ -94,8 +100,8 @@ Run options:
       --delay <MILLISECONDS>           Sets delay before each request (aka sleep) [default: 0]
       --from-entry <ENTRY_NUMBER>      Execute Hurl file from ENTRY_NUMBER (starting at 1)
       --ignore-asserts                 Ignore asserts defined in the Hurl file
-      --interactive                    Turn on interactive mode
-      --jobs <NUM>                     Maximum number of parallel jobs
+      --jobs <NUM>                     Maximum number of parallel jobs, 0 to disable parallel
+                                       execution
       --parallel                       Run files in parallel (default in test mode)
       --repeat <NUM>                   Repeat the input files sequence NUM times, -1 for infinite
                                        loop
@@ -103,6 +109,7 @@ Run options:
                                        retries
       --retry-interval <MILLISECONDS>  Interval in milliseconds before a retry [default: 1000]
       --secret <NAME=VALUE>            Define a variable which value is secret
+      --secrets-file <FILE>            Define a secrets file in which you define your secrets
       --test                           Activate test mode (use parallel execution)
       --to-entry <ENTRY_NUMBER>        Execute Hurl file to ENTRY_NUMBER (starting at 1)
       --variable <NAME=VALUE>          Define a variable

@@ -218,7 +218,7 @@ impl Logger {
             return;
         }
         let filename = filename.map_or(String::new(), |f| f.to_string());
-        let message = error.to_string(
+        let message = error.render(
             &filename,
             content,
             Some(entry_src_info),
@@ -291,38 +291,8 @@ impl Logger {
         self.eprintln(&s.to_string(fmt));
     }
 
-    pub fn error_parsing_rich<E: DisplaySourceError>(
-        &mut self,
-        content: &str,
-        filename: Option<&Input>,
-        error: &E,
-    ) {
-        // FIXME: peut-être qu'on devrait faire rentrer le prefix `error:` qui est
-        // fournit par `self.error_rich` dans la méthode `error.to_string`
-        let filename = filename.map_or(String::new(), |f| f.to_string());
-        let message = error.to_string(&filename, content, None, OutputFormat::Terminal(self.color));
-        self.error_rich(&message);
-    }
-
-    /// Prints a runtime error to this logger [`Stderr`] instance, no matter what is the verbosity.
-    pub fn error_runtime_rich<E: DisplaySourceError>(
-        &mut self,
-        content: &str,
-        filename: Option<&Input>,
-        error: &E,
-        entry_src_info: SourceInfo,
-    ) {
-        let filename = filename.map_or(String::new(), |f| f.to_string());
-        let message = error.to_string(
-            &filename,
-            content,
-            Some(entry_src_info),
-            OutputFormat::Terminal(self.color),
-        );
-        self.error_rich(&message);
-    }
-
-    fn error_rich(&mut self, message: &str) {
+    /// Prints an error message to this logger [`Stderr`] instance, no matter what is the verbosity.
+    pub fn error_rich(&mut self, message: &str) {
         let fmt = self.format();
         let mut s = StyledString::new();
         s.push_with("error", Style::new().red().bold());

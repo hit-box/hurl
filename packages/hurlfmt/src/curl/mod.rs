@@ -66,12 +66,16 @@ fn parse_line(s: &str) -> Result<String, String> {
         .arg(commands::compressed())
         .arg(commands::data())
         .arg(commands::headers())
+        .arg(commands::cookies())
         .arg(commands::insecure())
         .arg(commands::verbose())
+        .arg(commands::negotiate())
+        .arg(commands::ntlm())
         .arg(commands::location())
         .arg(commands::max_redirects())
         .arg(commands::method())
         .arg(commands::retry())
+        .arg(commands::user())
         .arg(commands::url())
         .arg(commands::url_param());
 
@@ -84,27 +88,34 @@ fn parse_line(s: &str) -> Result<String, String> {
     let method = matches::method(&arg_matches);
     let url = matches::url(&arg_matches);
     let headers = matches::headers(&arg_matches);
+    let cookies = matches::cookies(&arg_matches);
     let options = matches::options(&arg_matches);
     let body = matches::body(&arg_matches);
-    let s = format(&method, &url, headers, &options, body);
+    let s = format(&method, &url, &headers, &cookies, &options, body);
     Ok(s)
 }
 
 fn format(
     method: &str,
     url: &str,
-    headers: Vec<String>,
+    headers: &[String],
+    cookies: &[String],
     options: &[HurlOption],
     body: Option<String>,
 ) -> String {
     let mut s = format!("{method} {url}");
     for header in headers {
         if let Some(stripped) = header.strip_suffix(";") {
-            s.push_str(format!("\n{}:", stripped).as_str());
+            s.push_str(format!("\n{stripped}:").as_str());
         } else {
             s.push_str(format!("\n{header}").as_str());
         }
     }
+
+    if !cookies.is_empty() {
+        s.push_str(format!("\ncookie: {}", cookies.join("; ")).as_str());
+    }
+
     if !options.is_empty() {
         s.push_str("\n[Options]");
         for option in options {
@@ -235,6 +246,48 @@ Empty-Header:
     }
 
     #[test]
+    fn test_valid_cookies() {
+        let hurl_str = r#"GET http://localhost:8000/custom-cookies
+cookie: name1=value1; name2=value2; name3=value3
+"#;
+        assert_eq!(
+            parse_line("curl http://localhost:8000/custom-cookies -b 'name1=value1' -b 'name2=value2;name3=value3;;'").unwrap(),
+            hurl_str
+        );
+        assert_eq!(
+            parse_line("curl http://localhost:8000/custom-cookies --cookie 'name1=value1' --cookie 'name2=value2;name3=value3;;'").unwrap(),
+            hurl_str
+        );
+    }
+
+    #[test]
+    fn test_empty_cookie() {
+        assert!(
+            parse_line("curl http://localhost:8000/empty-cookie -b 'valid=pair' -b ''")
+                .unwrap_err()
+                .contains("empty value provided")
+        );
+    }
+
+    #[test]
+    fn test_single_illegal_cookie_pair() {
+        assert!(
+            parse_line("curl http://localhost:8000/empty-cookie -b 'valid=pair' -b 'invalid'")
+                .unwrap_err()
+                .contains("invalid cookie pair provided")
+        );
+    }
+
+    #[test]
+    fn test_multiple_illegal_cookie_pairs() {
+        assert!(parse_line(
+            "curl http://localhost:8000/empty-cookie -b 'name=value' -b 'valid=pair; invalid-1; invalid-2'"
+        )
+        .unwrap_err()
+        .contains("invalid cookie pairs provided: [invalid-1, invalid-2]"));
+    }
+
+    #[test]
     fn test_post_hello() {
         let hurl_str = r#"POST http://localhost:8000/hello
 Content-Type: text/plain
@@ -350,9 +403,47 @@ verbose: true
         let flags = vec!["-v", "--verbose"];
         for flag in flags {
             assert_eq!(
-                parse_line(format!("curl {} http://localhost:8000/hello", flag).as_str()).unwrap(),
+                parse_line(format!("curl {flag} http://localhost:8000/hello").as_str()).unwrap(),
                 hurl_str
             );
         }
+    }
+
+    #[test]
+    fn test_user_option() {
+        let user = "test_user:test_pass";
+        let hurl_str = format!("GET http://localhost:8000/hello\n[Options]\nuser: {user}\n");
+
+        let flags = vec!["-u", "--user"];
+        for flag in flags {
+            assert_eq!(
+                parse_line(&format!("curl {flag} '{user}' http://localhost:8000/hello")).unwrap(),
+                hurl_str
+            );
+        }
+    }
+
+    #[test]
+    fn test_ntlm_flag() {
+        let hurl_str = r#"GET http://localhost:8000/hello
+[Options]
+ntlm: true
+"#;
+        assert_eq!(
+            parse_line("curl --ntlm http://localhost:8000/hello").unwrap(),
+            hurl_str
+        );
+    }
+
+    #[test]
+    fn test_negotiate_flag() {
+        let hurl_str = r#"GET http://localhost:8000/hello
+[Options]
+negotiate: true
+"#;
+        assert_eq!(
+            parse_line("curl --negotiate http://localhost:8000/hello").unwrap(),
+            hurl_str
+        );
     }
 }

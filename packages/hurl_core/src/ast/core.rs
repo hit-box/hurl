@@ -24,6 +24,8 @@ use crate::ast::primitive::{
 use crate::ast::section::{
     Assert, Capture, Cookie, MultipartParam, RegexValue, Section, SectionValue,
 };
+use crate::ast::Placeholder;
+use crate::typing::{SourceString, ToSource};
 
 /// Represents Hurl AST root node.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -208,6 +210,12 @@ impl fmt::Display for Method {
     }
 }
 
+impl ToSource for Method {
+    fn to_source(&self) -> SourceString {
+        self.0.to_source()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Version {
     pub value: VersionValue,
@@ -236,6 +244,12 @@ impl fmt::Display for VersionValue {
     }
 }
 
+impl ToSource for VersionValue {
+    fn to_source(&self) -> SourceString {
+        self.to_string().to_source()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Status {
     pub value: StatusValue,
@@ -254,6 +268,12 @@ impl fmt::Display for StatusValue {
             StatusValue::Any => write!(f, "*"),
             StatusValue::Specific(v) => write!(f, "{v}"),
         }
+    }
+}
+
+impl ToSource for StatusValue {
+    fn to_source(&self) -> SourceString {
+        self.to_string().to_source()
     }
 }
 
@@ -295,6 +315,10 @@ pub enum FilterValue {
         space0: Whitespace,
         fmt: Template,
     },
+    DateFormat {
+        space0: Whitespace,
+        fmt: Template,
+    },
     HtmlEscape,
     HtmlUnescape,
     JsonPath {
@@ -305,7 +329,7 @@ pub enum FilterValue {
     Location,
     Nth {
         space0: Whitespace,
-        n: I64,
+        n: IntegerValue,
     },
     Regex {
         space0: Whitespace,
@@ -361,6 +385,7 @@ impl FilterValue {
             FilterValue::Decode { .. } => "decode",
             FilterValue::First => "first",
             FilterValue::Format { .. } => "format",
+            FilterValue::DateFormat { .. } => "dateFormat",
             FilterValue::HtmlEscape => "htmlEscape",
             FilterValue::HtmlUnescape => "htmlUnescape",
             FilterValue::JsonPath { .. } => "jsonpath",
@@ -380,6 +405,21 @@ impl FilterValue {
             FilterValue::UrlEncode => "urlEncode",
             FilterValue::UrlQueryParam { .. } => "urlQueryParam",
             FilterValue::XPath { .. } => "xpath",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IntegerValue {
+    Literal(I64),
+    Placeholder(Placeholder),
+}
+
+impl fmt::Display for IntegerValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IntegerValue::Literal(v) => write!(f, "{v}"),
+            IntegerValue::Placeholder(v) => write!(f, "{v}"),
         }
     }
 }

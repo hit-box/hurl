@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       new_version:
-        description: 'Version (x.y.z-SNASPHOT)'
+        description: 'Version (x.y.z-SNAPSHOT)'
         required: true
         type: string
   workflow_call:
@@ -20,7 +20,7 @@ on:
         required: true
     inputs:
       new_version:
-        description: "Version (x.y.z-SNASPHOT)"
+        description: "Version (x.y.z-SNAPSHOT)"
         required: true
         type: string
       branch:
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: true
           ref: ${{ inputs.branch }}

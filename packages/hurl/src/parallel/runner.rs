@@ -18,16 +18,16 @@
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, Mutex};
 
+use super::error::JobError;
+use super::job::{Job, JobQueue, JobResult};
+use super::message::WorkerMessage;
+use super::progress::{Mode, ParProgress};
+use super::worker::{Worker, WorkerId};
+use crate::output;
+use crate::pretty::PrettyMode;
+use crate::util::term::{Stderr, Stdout, WriteMode};
 use hurl_core::error::{DisplaySourceError, OutputFormat};
 use hurl_core::typing::Count;
-
-use crate::output;
-use crate::parallel::error::JobError;
-use crate::parallel::job::{Job, JobQueue, JobResult};
-use crate::parallel::message::WorkerMessage;
-use crate::parallel::progress::{Mode, ParProgress};
-use crate::parallel::worker::{Worker, WorkerId};
-use crate::util::term::{Stderr, Stdout, WriteMode};
 
 /// A parallel runner manages a list of `Worker`. Each worker is either idle or is running a
 /// [`Job`]. To run jobs, the [`ParallelRunner::run`] method much be executed on the main thread.
@@ -74,7 +74,11 @@ pub enum WorkerState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OutputType {
     /// The last HTTP response body of a Hurl file is outputted on standard output.
-    ResponseBody { include_headers: bool, color: bool },
+    ResponseBody {
+        include_headers: bool,
+        color: bool,
+        pretty: PrettyMode,
+    },
     /// The whole Hurl file run is exported in a structured JSON export on standard output.
     Json,
     /// Nothing is outputted on standard output when a Hurl file run is completed.
@@ -312,18 +316,20 @@ impl ParallelRunner {
             OutputType::ResponseBody {
                 include_headers,
                 color,
+                pretty,
             } => {
                 if hurl_result.success {
                     let result = output::write_last_body(
                         hurl_result,
                         include_headers,
                         color,
+                        pretty,
                         filename_out,
                         stdout,
                         append,
                     );
                     if let Err(e) = result {
-                        let message = e.to_string(
+                        let message = e.render(
                             &filename_in.to_string(),
                             content,
                             None,
@@ -342,8 +348,8 @@ impl ParallelRunner {
                     stdout,
                     append,
                 );
-                if let Err(eroor) = result {
-                    return Err(JobError::OutputWrite(eroor.to_string()));
+                if let Err(error) = result {
+                    return Err(JobError::OutputWrite(error.to_string()));
                 }
             }
             OutputType::NoOutput => {}

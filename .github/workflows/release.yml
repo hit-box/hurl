@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: true
 
@@ -173,7 +173,7 @@ jobs:
     steps:
       - name: Checkout repository
         if: github.ref_name == 'master'
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: true
 
@@ -191,7 +191,7 @@ jobs:
           fi
 
       - name: Checkout new release branch
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: true
           ref: ${{ needs.set-context.outputs.release_branch }}
@@ -301,7 +301,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout new release branch
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5.0.0
         with:
           persist-credentials: true
           ref: ${{ needs.set-context.outputs.release_branch }}
@@ -316,7 +316,7 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
 
-      - uses: actions/download-artifact@v4.3.0
+      - uses: actions/download-artifact@v5.0.0
         with:
           path: artifacts
 
@@ -416,7 +416,7 @@ jobs:
           echo "- Please use \`/accept\` as usual then run the \`update-branch-version\` github workflow if you want to automatically update master branch to next SNAPSHOT version"
           } > file-body.txt
           gh pr create \
-            --title "Merge GitHub ${{ needs.set-context.outputs.release_branch }} into master \
+            --title "Merge GitHub ${{ needs.set-context.outputs.release_branch }} into master" \
             --body-file file-body.txt \
             --base master \
             --label bot && gh_exit_code=0 || gh_exit_code=$?

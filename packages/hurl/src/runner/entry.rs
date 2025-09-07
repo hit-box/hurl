@@ -15,7 +15,9 @@
  * limitations under the License.
  *
  */
-use hurl_core::ast::{Entry, PredicateFuncValue, Response, SourceInfo};
+use hurl_core::ast::{
+    Assert, Capture, Entry, FilterValue, PredicateFuncValue, Response, SourceInfo,
+};
 
 use crate::http;
 use crate::http::{ClientOptions, CurlCmd};
@@ -52,7 +54,7 @@ pub fn run(
         let immediate_logs =
             matches!(logger.stderr.mode(), WriteMode::Immediate) && logger.verbosity.is_some();
         if immediate_logs {
-            let redacted = response_spec.captures().iter().find(|c| c.redact);
+            let redacted = response_spec.captures().iter().find(|c| c.redacted);
             if let Some(redacted) = redacted {
                 let source_info = redacted.name.source_info;
                 let error =
@@ -259,9 +261,11 @@ impl ClientOptions {
             max_recv_speed: runner_options.max_recv_speed,
             max_redirect: runner_options.max_redirect,
             max_send_speed: runner_options.max_send_speed,
+            negotiate: runner_options.negotiate,
             netrc: runner_options.netrc,
             netrc_file: runner_options.netrc_file.clone(),
             netrc_optional: runner_options.netrc_optional,
+            ntlm: runner_options.ntlm,
             path_as_is: runner_options.path_as_is,
             pinned_pub_key: runner_options.pinned_pub_key.clone(),
             proxy: runner_options.proxy.clone(),
@@ -352,4 +356,34 @@ fn warn_deprecated(response_spec: &Response, logger: &mut Logger) {
     }) {
         logger.warning("<includes> predicate is now deprecated in favor of <contains> predicate");
     }
+    if response_spec
+        .captures()
+        .iter()
+        .any(captures_has_format_filter)
+    {
+        logger.warning(
+            "<format> filter in captures is now deprecated in favor of <dateFormat> filter",
+        );
+    }
+    if response_spec
+        .asserts()
+        .iter()
+        .any(asserts_has_format_filter)
+    {
+        logger.warning(
+            "<format> filter in asserts is now deprecated in favor of <dateFormat> filter",
+        );
+    }
+}
+
+fn asserts_has_format_filter(a: &Assert) -> bool {
+    a.filters
+        .iter()
+        .any(|(_, f)| matches!(f.value, FilterValue::Format { .. }))
+}
+
+fn captures_has_format_filter(a: &Capture) -> bool {
+    a.filters
+        .iter()
+        .any(|(_, f)| matches!(f.value, FilterValue::Format { .. }))
 }

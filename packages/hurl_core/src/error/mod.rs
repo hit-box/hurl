@@ -87,7 +87,7 @@ pub trait DisplaySourceError {
     ///   |          ^^^ actual value is <404>    | >
     ///   |                                       |
     /// ```
-    fn to_string(
+    fn render(
         &self,
         filename: &str,
         content: &str,
@@ -331,6 +331,7 @@ mod tests {
 
     #[test]
     fn test_diff_error() {
+        // For the crate colored to output ANSI escape code in test environment.
         crate::text::init_crate_colored();
 
         let content = r#"GET http://localhost:8000/failed/multiline/json
@@ -386,7 +387,7 @@ HTTP 200
         );
 
         assert_eq!(
-            error.to_string(filename, content, None, OutputFormat::Terminal(false)),
+            error.render(filename, content, None, OutputFormat::Terminal(false)),
             r#"Assert body value
   --> test.hurl:4:1
    |

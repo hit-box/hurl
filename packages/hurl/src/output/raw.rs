@@ -15,23 +15,27 @@
  * limitations under the License.
  *
  */
+use super::error::OutputErrorKind;
+use super::OutputError;
+use crate::pretty;
+use crate::pretty::json::Color;
+use crate::pretty::PrettyMode;
+use crate::runner::{HurlResult, Output};
+use crate::util::term::Stdout;
 use std::cmp::min;
 use std::io::IsTerminal;
 
-use crate::output::error::OutputErrorKind;
-use crate::output::OutputError;
-use crate::runner::{HurlResult, Output};
-use crate::util::term::Stdout;
-
 /// Writes the `hurl_result` last response to the file `filename_out`.
 ///
-/// If `filename_out` is `None`, standard output is used. If `append` is true, any existing file will
-/// be appended instead of being truncated. If `include_headers` is true, the last
-/// HTTP response headers are written before the body response.
+/// When `include_headers` is true, the last HTTP response headers are written before the body response.
+/// When `filename_out` is `None`, standard output is used.
+/// When `append` is true, any existing file will be appended instead of being truncated.
+/// The body can pe prettified base on `pretty` value.
 pub fn write_last_body(
     hurl_result: &HurlResult,
     include_headers: bool,
     color: bool,
+    pretty: PrettyMode,
     filename_out: Option<&Output>,
     stdout: &mut Stdout,
     append: bool,
@@ -43,30 +47,60 @@ pub fn write_last_body(
     let Some(call) = &last_entry.calls.last() else {
         return Ok(());
     };
-    let response = &call.response;
-    let mut output = vec![];
 
-    // If include options is set, we output the HTTP response headers
-    // with status and version (to mimic curl outputs)
+    let response = &call.response;
+    let source_info = last_entry.source_info;
+    let mut output = Vec::new();
+
+    // If include options is set, we output the HTTP response headers with status and version
+    // (to mimic curl outputs)
     if include_headers {
-        let mut text = response.get_status_line_headers(color);
-        text.push('\n');
+        let text = response.get_status_line_headers(color);
         output.append(&mut text.into_bytes());
+        output.push(b'\n');
     }
-    if last_entry.compressed {
-        let mut bytes = match response.uncompress_body() {
+
+    let body_bytes = if last_entry.compressed {
+        &match response.uncompress_body() {
             Ok(b) => b,
             Err(e) => {
                 let source_info = last_entry.source_info;
                 let kind = OutputErrorKind::Http(e);
                 return Err(OutputError::new(source_info, kind));
             }
-        };
-        output.append(&mut bytes);
+        }
     } else {
-        let bytes = &response.body;
-        output.extend(bytes);
+        &response.body
+    };
+
+    // Prettify only JSON-like response for the moment.
+    let pretty = match pretty {
+        PrettyMode::Automatic => response.is_json(),
+        PrettyMode::Force => true,
+        PrettyMode::None => false,
+    };
+    if pretty {
+        let color_pretty = if color { Color::Ansi } else { Color::NoColor };
+        match pretty::format(body_bytes, color_pretty, &mut output) {
+            Ok(_) => {}
+            Err(_) => {
+                // We've an error trying to pretty print response output, we silently fail and
+                // fallback on non prettifying.
+                return write_last_body(
+                    hurl_result,
+                    include_headers,
+                    color,
+                    PrettyMode::None,
+                    filename_out,
+                    stdout,
+                    append,
+                );
+            }
+        }
+    } else {
+        output.extend_from_slice(body_bytes);
     }
+
     // We replicate curl's checks for binary output: a warning is displayed when user hasn't
     // used `--output` option and the response is considered as a binary content. If user has used
     // `--output` whether to save to a file, or to redirect output to standard output (`--output -`)
@@ -74,12 +108,10 @@ pub fn write_last_body(
     match filename_out {
         None => {
             if std::io::stdout().is_terminal() && is_binary(&output) {
-                let source_info = last_entry.source_info;
                 let kind = OutputErrorKind::Binary;
                 return Err(OutputError::new(source_info, kind));
             }
             Output::Stdout.write(&output, stdout, append).map_err(|e| {
-                let source_info = last_entry.source_info;
                 let kind = OutputErrorKind::Io(e.to_string());
                 OutputError::new(source_info, kind)
             })?;
@@ -90,8 +122,7 @@ pub fn write_last_body(
             } else {
                 "stdout".to_string()
             };
-            let source_info = last_entry.source_info;
-            let kind = OutputErrorKind::Io(format!("{filename} can not be written ({})", e));
+            let kind = OutputErrorKind::Io(format!("{filename} can not be written ({e})"));
             OutputError::new(source_info, kind)
         })?,
     }
@@ -125,6 +156,7 @@ mod tests {
 
     use crate::http::{Call, Header, HeaderVec, HttpVersion, Request, Response, Url};
     use crate::output::write_last_body;
+    use crate::pretty::PrettyMode;
     use crate::runner::{EntryResult, HurlResult, Output};
     use crate::util::term::{Stdout, WriteMode};
 
@@ -217,6 +249,7 @@ mod tests {
         let result = hurl_result_json();
         let include_header = true;
         let color = false;
+        let pretty = PrettyMode::None;
         let output = Some(Output::Stdout);
         let mut stdout = Stdout::new(WriteMode::Buffered);
 
@@ -224,6 +257,7 @@ mod tests {
             &result,
             include_header,
             color,
+            pretty,
             output.as_ref(),
             &mut stdout,
             true,

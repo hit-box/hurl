@@ -330,6 +330,7 @@ predicate-func:
   | iso-date-predicate
   | is-ipv4-predicate
   | is-ipv6-predicate
+  | is-uuid-predicate
 
 equal-predicate: "==" sp predicate-value
 
@@ -374,6 +375,8 @@ iso-date-predicate: "isIsoDate"
 is-ipv4-predicate: "isIpv4"
 
 is-ipv6-predicate: "isIpv6"
+
+is-uuid-predicate: "isUuid"
 
 predicate-value:
     boolean
@@ -559,7 +562,7 @@ filter:
   | days-before-now-filter
   | decode-filter
   | first-filter
-  | format-filter
+  | date-format-filter
   | html-escape-filter
   | html-unescape-filter
   | jsonpath-filter
@@ -598,7 +601,7 @@ decode-filter: "decode"
 
 first-filter: "first" 
 
-format-filter: "format" sp quoted-string
+date-format-filter: "dateFormat" sp quoted-string
 
 html-escape-filter: "htmlEscape"
 
@@ -610,7 +613,7 @@ last-filter: "last"
 
 location-filter: "location"
 
-nth-filter: "nth" sp integer
+nth-filter: "nth" sp (integer | placeholder)
 
 regex-filter: "regex" sp (quoted-string | regex)
 

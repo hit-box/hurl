@@ -10,7 +10,6 @@ fi
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y install \
     bash \
-    software-properties-common \
     expect \
     curl \
     net-tools \
@@ -26,7 +25,6 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get -y install \
     squid \
     jq \
     python3 \
-    python3-distutils \
     python3-venv \
     python3-dev
 sudo service squid stop || true

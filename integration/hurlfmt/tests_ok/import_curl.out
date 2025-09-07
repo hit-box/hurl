@@ -41,6 +41,14 @@ status < 500
 
 GET https://localhost:8001/hello
 [Options]
+user: "user:pass"
+
+GET https://localhost:8001/hello
+[Options]
+user: "user:pass"
+
+GET https://localhost:8001/hello
+[Options]
 insecure: true
 
 GET https://localhost:8001/hello
@@ -50,6 +58,14 @@ verbose: true
 GET https://localhost:8001/hello
 [Options]
 verbose: true
+
+GET https://localhost:8001/hello
+[Options]
+ntlm: true
+
+GET https://localhost:8001/hello
+[Options]
+negotiate: true
 
 GET http://localhost:8000/hello
 Empty-Header:

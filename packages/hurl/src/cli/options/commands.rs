@@ -279,6 +279,7 @@ pub fn interactive() -> clap::Arg {
         .help_heading("Run options")
         .conflicts_with("to_entry")
         .action(clap::ArgAction::SetTrue)
+        .hide(true)
 }
 
 pub fn ipv4() -> clap::Arg {
@@ -304,7 +305,7 @@ pub fn jobs() -> clap::Arg {
         .long("jobs")
         .value_name("NUM")
         .value_parser(clap::value_parser!(u32).range(1..))
-        .help("Maximum number of parallel jobs")
+        .help("Maximum number of parallel jobs, 0 to disable parallel execution")
         .help_heading("Run options")
         .num_args(1)
 }
@@ -359,6 +360,14 @@ pub fn max_time() -> clap::Arg {
         .num_args(1)
 }
 
+pub fn negotiate() -> clap::Arg {
+    clap::Arg::new("negotiate")
+        .long("negotiate")
+        .help("Tell Hurl to use Negotiate (SPNEGO) authentication")
+        .help_heading("HTTP options")
+        .action(clap::ArgAction::SetTrue)
+}
+
 pub fn netrc() -> clap::Arg {
     clap::Arg::new("netrc")
         .long("netrc")
@@ -407,6 +416,15 @@ pub fn no_output() -> clap::Arg {
         .action(clap::ArgAction::SetTrue)
 }
 
+pub fn no_pretty() -> clap::Arg {
+    clap::Arg::new("no_pretty")
+        .long("no-pretty")
+        .help("Do not prettify response output")
+        .help_heading("Output options")
+        .conflicts_with("pretty")
+        .action(clap::ArgAction::SetTrue)
+}
+
 pub fn noproxy() -> clap::Arg {
     clap::Arg::new("noproxy")
         .long("noproxy")
@@ -414,6 +432,14 @@ pub fn noproxy() -> clap::Arg {
         .help("List of hosts which do not use proxy")
         .help_heading("HTTP options")
         .num_args(1)
+}
+
+pub fn ntlm() -> clap::Arg {
+    clap::Arg::new("ntlm")
+        .long("ntlm")
+        .help("Tell Hurl to use NTLM authentication")
+        .help_heading("HTTP options")
+        .action(clap::ArgAction::SetTrue)
 }
 
 pub fn output() -> clap::Arg {
@@ -449,6 +475,14 @@ pub fn pinned_pub_key() -> clap::Arg {
         .help("Public key to verify peer against")
         .help_heading("HTTP options")
         .num_args(1)
+}
+
+pub fn pretty() -> clap::Arg {
+    clap::Arg::new("pretty")
+        .long("pretty")
+        .help("Prettify JSON response output")
+        .help_heading("Output options")
+        .action(clap::ArgAction::SetTrue)
 }
 
 pub fn progress_bar() -> clap::Arg {
@@ -551,6 +585,16 @@ pub fn secret() -> clap::Arg {
         .long("secret")
         .value_name("NAME=VALUE")
         .help("Define a variable which value is secret")
+        .help_heading("Run options")
+        .num_args(1)
+        .action(clap::ArgAction::Append)
+}
+
+pub fn secrets_file() -> clap::Arg {
+    clap::Arg::new("secrets_file")
+        .long("secrets-file")
+        .value_name("FILE")
+        .help("Define a secrets file in which you define your secrets")
         .help_heading("Run options")
         .num_args(1)
         .action(clap::ArgAction::Append)

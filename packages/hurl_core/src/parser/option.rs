@@ -67,9 +67,11 @@ pub fn parse(reader: &mut Reader) -> ParseResult<EntryOption> {
         "location-trusted" => option_follow_location_trusted(reader)?,
         "max-redirs" => option_max_redirect(reader)?,
         "max-time" => option_max_time(reader)?,
+        "negotiate" => option_negotiate(reader)?,
         "netrc" => option_netrc(reader)?,
         "netrc-file" => option_netrc_file(reader)?,
         "netrc-optional" => option_netrc_optional(reader)?,
+        "ntlm" => option_ntlm(reader)?,
         "output" => option_output(reader)?,
         "path-as-is" => option_path_as_is(reader)?,
         "pinnedpubkey" => option_pinned_pub_key(reader)?,
@@ -209,6 +211,11 @@ fn option_max_time(reader: &mut Reader) -> ParseResult<OptionKind> {
     Ok(OptionKind::MaxTime(value))
 }
 
+fn option_negotiate(reader: &mut Reader) -> ParseResult<OptionKind> {
+    let value = boolean_option(reader)?;
+    Ok(OptionKind::Negotiate(value))
+}
+
 fn option_netrc(reader: &mut Reader) -> ParseResult<OptionKind> {
     let value = non_recover(boolean_option, reader)?;
     Ok(OptionKind::NetRc(value))
@@ -222,6 +229,11 @@ fn option_netrc_file(reader: &mut Reader) -> ParseResult<OptionKind> {
 fn option_netrc_optional(reader: &mut Reader) -> ParseResult<OptionKind> {
     let value = non_recover(boolean_option, reader)?;
     Ok(OptionKind::NetRcOptional(value))
+}
+
+fn option_ntlm(reader: &mut Reader) -> ParseResult<OptionKind> {
+    let value = non_recover(boolean_option, reader)?;
+    Ok(OptionKind::Ntlm(value))
 }
 
 fn option_output(reader: &mut Reader) -> ParseResult<OptionKind> {

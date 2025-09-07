@@ -45,7 +45,7 @@ impl Logger {
     pub fn error_parsing<E: DisplaySourceError>(&self, content: &str, file: &Input, error: &E) {
         // FIXME: peut-être qu'on devrait faire rentrer le prefix `error:` qui est
         // fournit par `self.error_rich` dans la méthode `error.to_string`
-        let message = error.to_string(
+        let message = error.render(
             &file.to_string(),
             content,
             None,
@@ -54,23 +54,6 @@ impl Logger {
 
         let mut s = StyledString::new();
         s.push_with("error", Style::new().red().bold());
-        s.push(": ");
-        s.push(&message);
-        s.push("\n");
-        eprintln!("{}", s.to_string(self.format));
-    }
-
-    /// Displays a lint warning.
-    pub fn warn_lint<E: DisplaySourceError>(&self, content: &str, file: &Input, error: &E) {
-        let message = error.to_string(
-            &file.to_string(),
-            content,
-            None,
-            OutputFormat::Terminal(self.format == Format::Ansi),
-        );
-
-        let mut s = StyledString::new();
-        s.push_with("warning", Style::new().yellow().bold());
         s.push(": ");
         s.push(&message);
         s.push("\n");

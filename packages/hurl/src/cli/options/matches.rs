@@ -16,20 +16,20 @@
  *
  */
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufRead, BufReader, IsTerminal};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::{env, fs, io};
 
 use clap::ArgMatches;
+use hurl::pretty::PrettyMode;
 use hurl::runner::Value;
 use hurl_core::input::Input;
 use hurl_core::typing::{BytesPerSec, Count, DurationUnit};
 
-use crate::cli::options::{
-    duration, variables, CliOptionsError, ErrorFormat, HttpVersion, IpResolve, Output,
-};
+use super::context::RunContext;
+use super::variables::TypeKind;
+use super::variables_file::VariablesFile;
+use super::{duration, variables, CliOptionsError, ErrorFormat, HttpVersion, IpResolve, Output};
 use crate::cli::OutputType;
 
 pub fn cacert_file(arg_matches: &ArgMatches) -> Result<Option<String>, CliOptionsError> {
@@ -83,16 +83,15 @@ pub fn client_key_file(arg_matches: &ArgMatches) -> Result<Option<String>, CliOp
 
 /// Returns true if Hurl output uses ANSI code and false otherwise.
 ///
-/// `allow_color_from_env` is false when the environment disallow usage of ANSI color (NO_COLOR en variable,
-/// or not tty context).
-pub fn color(arg_matches: &ArgMatches, allow_color_from_env: bool) -> bool {
+/// If it has no flags, we use the run `context` to determine if we use color or not.
+pub fn color(arg_matches: &ArgMatches, context: &RunContext) -> bool {
     if has_flag(arg_matches, "color") {
         return true;
     }
     if has_flag(arg_matches, "no_color") {
         return false;
     }
-    allow_color_from_env
+    context.is_with_color()
 }
 
 pub fn compressed(arg_matches: &ArgMatches) -> bool {
@@ -171,10 +170,10 @@ pub fn html_dir(arg_matches: &ArgMatches) -> Result<Option<PathBuf>, CliOptionsE
         } else if path.is_dir() {
             Ok(Some(path.to_path_buf()))
         } else {
-            return Err(CliOptionsError::Error(format!(
+            Err(CliOptionsError::Error(format!(
                 "{} is not a valid directory",
                 path.display()
-            )));
+            )))
         }
     } else {
         Ok(None)
@@ -205,14 +204,17 @@ pub fn include(arg_matches: &ArgMatches) -> bool {
 
 /// Returns true if we have at least one input files.
 /// The input file can be a file, the standard input, or a glob (even a glob returns empty results).
-pub fn has_input_files(arg_matches: &ArgMatches) -> bool {
+pub fn has_input_files(arg_matches: &ArgMatches, context: &RunContext) -> bool {
     get_strings(arg_matches, "input_files").is_some()
         || get_strings(arg_matches, "glob").is_some()
-        || !io::stdin().is_terminal()
+        || !context.is_stdin_term()
 }
 
 /// Returns the input files from the positional arguments and the glob options
-pub fn input_files(arg_matches: &ArgMatches) -> Result<Vec<Input>, CliOptionsError> {
+pub fn input_files(
+    arg_matches: &ArgMatches,
+    context: &RunContext,
+) -> Result<Vec<Input>, CliOptionsError> {
     let mut files = vec![];
     if let Some(filenames) = get_strings(arg_matches, "input_files") {
         for filename in &filenames {
@@ -231,7 +233,7 @@ pub fn input_files(arg_matches: &ArgMatches) -> Result<Vec<Input>, CliOptionsErr
     for filename in glob_files(arg_matches)? {
         files.push(filename);
     }
-    if files.is_empty() && !io::stdin().is_terminal() {
+    if files.is_empty() && !context.is_stdin_term() {
         let input = match Input::from_stdin() {
             Ok(input) => input,
             Err(err) => return Err(CliOptionsError::Error(err.to_string())),
@@ -315,14 +317,18 @@ pub fn json_report_dir(arg_matches: &ArgMatches) -> Result<Option<PathBuf>, CliO
         } else if path.is_dir() {
             Ok(Some(path.to_path_buf()))
         } else {
-            return Err(CliOptionsError::Error(format!(
+            Err(CliOptionsError::Error(format!(
                 "{} is not a valid directory",
                 path.display()
-            )));
+            )))
         }
     } else {
         Ok(None)
     }
+}
+
+pub fn negotiate(arg_matches: &ArgMatches) -> bool {
+    has_flag(arg_matches, "negotiate")
 }
 
 pub fn netrc(arg_matches: &ArgMatches) -> bool {
@@ -351,6 +357,10 @@ pub fn no_proxy(arg_matches: &ArgMatches) -> Option<String> {
     get::<String>(arg_matches, "noproxy")
 }
 
+pub fn ntlm(arg_matches: &ArgMatches) -> bool {
+    has_flag(arg_matches, "ntlm")
+}
+
 pub fn output(arg_matches: &ArgMatches) -> Option<Output> {
     get::<String>(arg_matches, "output").map(|filename| Output::new(&filename))
 }
@@ -377,7 +387,21 @@ pub fn pinned_pub_key(arg_matches: &ArgMatches) -> Option<String> {
     get::<String>(arg_matches, "pinned_pub_key")
 }
 
-pub fn progress_bar(arg_matches: &ArgMatches) -> bool {
+pub fn pretty(arg_matches: &ArgMatches, context: &RunContext) -> PrettyMode {
+    if has_flag(arg_matches, "pretty") {
+        return PrettyMode::Force;
+    }
+    if has_flag(arg_matches, "no_pretty") {
+        return PrettyMode::None;
+    }
+    if context.is_stdout_term() {
+        PrettyMode::Automatic
+    } else {
+        PrettyMode::None
+    }
+}
+
+pub fn progress_bar(arg_matches: &ArgMatches, context: &RunContext) -> bool {
     // The test progress bar is displayed only for in test mode, for interactive TTYs.
     // It can be forced by `--progress-bar` option.
     if !test(arg_matches) {
@@ -386,7 +410,7 @@ pub fn progress_bar(arg_matches: &ArgMatches) -> bool {
     if has_flag(arg_matches, "progress_bar") {
         return true;
     }
-    io::stderr().is_terminal() && !is_ci()
+    context.is_stderr_term() && !context.is_ci()
 }
 
 pub fn proxy(arg_matches: &ArgMatches) -> Option<String> {
@@ -420,24 +444,50 @@ pub fn retry_interval(arg_matches: &ArgMatches) -> Result<Duration, CliOptionsEr
 
 pub fn secret(matches: &ArgMatches) -> Result<HashMap<String, String>, CliOptionsError> {
     let mut secrets = HashMap::new();
-    if let Some(secret) = get_strings(matches, "secret") {
-        for s in secret {
-            let inferred = false;
-            let (name, value) = variables::parse(&s, inferred)?;
-            // We check that there is no existing secrets
-            if secrets.contains_key(&name) {
-                return Err(CliOptionsError::Error(format!(
-                    "secret '{}' can't be reassigned",
-                    &name
-                )));
-            }
-            // Secrets can only be string.
-            if let Value::String(value) = value {
-                secrets.insert(name, value);
+
+    // Secrets are always parsed as string.
+    let type_kind = TypeKind::String;
+
+    // Add secrets from files:
+    if let Some(filenames) = get_strings(matches, "secrets_file") {
+        for f in &filenames {
+            let filename = Path::new(f);
+            let vars = VariablesFile::open(filename, type_kind)?;
+            for var in vars {
+                let (name, value) = var?;
+                add_secret(&mut secrets, name, value)?;
             }
         }
     }
+
+    // Finally, add single secrets.
+    if let Some(secret) = get_strings(matches, "secret") {
+        for s in secret {
+            let (name, value) = variables::parse(&s, type_kind)?;
+            add_secret(&mut secrets, name, value)?;
+        }
+    }
     Ok(secrets)
+}
+
+/// Add a secret with `name` and `value` to the `secrets` hash map.
+fn add_secret(
+    secrets: &mut HashMap<String, String>,
+    name: String,
+    value: Value,
+) -> Result<(), CliOptionsError> {
+    // We check that there is no existing secrets
+    if secrets.contains_key(&name) {
+        return Err(CliOptionsError::Error(format!(
+            "secret '{}' can't be reassigned",
+            &name
+        )));
+    }
+    // Secrets can only be string.
+    if let Value::String(value) = value {
+        secrets.insert(name.to_string(), value);
+    }
+    Ok(())
 }
 
 pub fn ssl_no_revoke(arg_matches: &ArgMatches) -> bool {
@@ -474,56 +524,39 @@ pub fn user_agent(arg_matches: &ArgMatches) -> Option<String> {
 }
 
 /// Returns a map of variables from the command line options `matches`.
-pub fn variables(matches: &ArgMatches) -> Result<HashMap<String, Value>, CliOptionsError> {
+pub fn variables(
+    matches: &ArgMatches,
+    context: &RunContext,
+) -> Result<HashMap<String, Value>, CliOptionsError> {
     let mut variables = HashMap::new();
 
+    // Variables are typed, based on their values.
+    let type_kind = TypeKind::Inferred;
+
     // Use environment variables prefix by HURL_
-    for (env_name, env_value) in env::vars() {
+    for (env_name, env_value) in context.env_vars() {
         if let Some(name) = env_name.strip_prefix("HURL_") {
-            let inferred = true;
-            let value = variables::parse_value(env_value.as_str(), inferred)?;
+            let value = variables::parse_value(env_value.as_str(), type_kind)?;
             variables.insert(name.to_string(), value);
         }
     }
 
+    // Then add variables from files:
     if let Some(filenames) = get_strings(matches, "variables_file") {
-        for f in filenames.iter() {
-            let path = Path::new(&f);
-            if !path.exists() {
-                return Err(CliOptionsError::Error(format!(
-                    "Properties file {} does not exist",
-                    path.display()
-                )));
-            }
-
-            let file = File::open(path).unwrap();
-            let reader = BufReader::new(file);
-            for (index, line) in reader.lines().enumerate() {
-                let line = match line {
-                    Ok(s) => s,
-                    Err(_) => {
-                        return Err(CliOptionsError::Error(format!(
-                            "Can not parse line {} of {}",
-                            index + 1,
-                            path.display()
-                        )))
-                    }
-                };
-                let line = line.trim();
-                if line.starts_with('#') || line.is_empty() {
-                    continue;
-                }
-                let inferred = true;
-                let (name, value) = variables::parse(line, inferred)?;
+        for f in &filenames {
+            let filename = Path::new(f);
+            let vars = VariablesFile::open(filename, type_kind)?;
+            for var in vars {
+                let (name, value) = var?;
                 variables.insert(name.to_string(), value);
             }
         }
     }
 
+    // Finally, add single variables from command line.
     if let Some(input) = get_strings(matches, "variable") {
         for s in input {
-            let inferred = true;
-            let (name, value) = variables::parse(&s, inferred)?;
+            let (name, value) = variables::parse(&s, type_kind)?;
             variables.insert(name.to_string(), value);
         }
     }
@@ -602,10 +635,4 @@ fn get_duration(s: &str, default_unit: DurationUnit) -> Result<Duration, CliOpti
         DurationUnit::Minute => duration.value.as_u64() * 1000 * 60,
     };
     Ok(Duration::from_millis(millis))
-}
-
-/// Whether this running in a Continuous Integration environment.
-/// Code borrowed from <https://github.com/rust-lang/cargo/blob/master/crates/cargo-util/src/lib.rs>
-fn is_ci() -> bool {
-    env::var("CI").is_ok() || env::var("TF_BUILD").is_ok()
 }

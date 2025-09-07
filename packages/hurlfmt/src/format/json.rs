@@ -328,9 +328,11 @@ impl ToJson for EntryOption {
             OptionKind::LimitRate(value) => value.to_json(),
             OptionKind::MaxRedirect(value) => value.to_json(),
             OptionKind::MaxTime(value) => value.to_json(),
+            OptionKind::Negotiate(value) => value.to_json(),
             OptionKind::NetRc(value) => value.to_json(),
             OptionKind::NetRcFile(filename) => JValue::String(filename.to_string()),
             OptionKind::NetRcOptional(value) => value.to_json(),
+            OptionKind::Ntlm(value) => value.to_json(),
             OptionKind::Output(filename) => JValue::String(filename.to_string()),
             OptionKind::PathAsIs(value) => value.to_json(),
             OptionKind::PinnedPublicKey(value) => JValue::String(value.to_string()),
@@ -430,7 +432,7 @@ impl ToJson for Capture {
             let filters = JValue::List(self.filters.iter().map(|(_, f)| f.to_json()).collect());
             attributes.push(("filters".to_string(), filters));
         }
-        if self.redact {
+        if self.redacted {
             attributes.push(("redact".to_string(), JValue::Boolean(true)));
         }
         JValue::Object(attributes)
@@ -568,7 +570,8 @@ impl ToJson for Predicate {
             | PredicateFuncValue::IsEmpty
             | PredicateFuncValue::IsNumber
             | PredicateFuncValue::IsIpv4
-            | PredicateFuncValue::IsIpv6 => {}
+            | PredicateFuncValue::IsIpv6
+            | PredicateFuncValue::IsUuid => {}
         }
         JValue::Object(attributes)
     }
@@ -652,6 +655,9 @@ impl ToJson for FilterValue {
             FilterValue::Format { fmt, .. } => {
                 attributes.push(("fmt".to_string(), JValue::String(fmt.to_string())));
             }
+            FilterValue::DateFormat { fmt, .. } => {
+                attributes.push(("fmt".to_string(), JValue::String(fmt.to_string())));
+            }
             FilterValue::JsonPath { expr, .. } => {
                 attributes.push(("expr".to_string(), JValue::String(expr.to_string())));
             }
@@ -704,7 +710,7 @@ impl ToJson for FilterValue {
 
 impl ToJson for Placeholder {
     fn to_json(&self) -> JValue {
-        JValue::String(format!("{{{{{}}}}}", self))
+        JValue::String(format!("{{{{{self}}}}}"))
     }
 }
 
@@ -898,7 +904,7 @@ pub mod tests {
             query: header_query(),
             filters: vec![],
             space3: whitespace(),
-            redact: false,
+            redacted: false,
             line_terminator0: line_terminator(),
         }
     }

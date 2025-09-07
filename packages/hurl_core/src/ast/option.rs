@@ -55,9 +55,11 @@ pub enum OptionKind {
     LimitRate(NaturalOption),
     MaxRedirect(CountOption),
     MaxTime(DurationOption),
+    Negotiate(BooleanOption),
     NetRc(BooleanOption),
     NetRcFile(Template),
     NetRcOptional(BooleanOption),
+    Ntlm(BooleanOption),
     Output(Template),
     PathAsIs(BooleanOption),
     PinnedPublicKey(Template),
@@ -99,9 +101,11 @@ impl OptionKind {
             OptionKind::LimitRate(_) => "limit-rate",
             OptionKind::MaxRedirect(_) => "max-redirs",
             OptionKind::MaxTime(_) => "max-time",
+            OptionKind::Negotiate(_) => "negotiate",
             OptionKind::NetRc(_) => "netrc",
             OptionKind::NetRcFile(_) => "netrc-file",
             OptionKind::NetRcOptional(_) => "netrc-optional",
+            OptionKind::Ntlm(_) => "ntlm",
             OptionKind::Output(_) => "output",
             OptionKind::PathAsIs(_) => "path-as-is",
             OptionKind::PinnedPublicKey(_) => "pinnedpubkey",
@@ -144,9 +148,11 @@ impl fmt::Display for OptionKind {
             OptionKind::LimitRate(value) => value.to_string(),
             OptionKind::MaxRedirect(value) => value.to_string(),
             OptionKind::MaxTime(value) => value.to_string(),
+            OptionKind::Negotiate(value) => value.to_string(),
             OptionKind::NetRc(value) => value.to_string(),
             OptionKind::NetRcFile(filename) => filename.to_string(),
             OptionKind::NetRcOptional(value) => value.to_string(),
+            OptionKind::Ntlm(value) => value.to_string(),
             OptionKind::Output(filename) => filename.to_string(),
             OptionKind::PathAsIs(value) => value.to_string(),
             OptionKind::PinnedPublicKey(value) => value.to_string(),
@@ -175,8 +181,8 @@ pub enum BooleanOption {
 impl fmt::Display for BooleanOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BooleanOption::Literal(v) => write!(f, "{}", v),
-            BooleanOption::Placeholder(v) => write!(f, "{}", v),
+            BooleanOption::Literal(v) => write!(f, "{v}"),
+            BooleanOption::Placeholder(v) => write!(f, "{v}"),
         }
     }
 }
@@ -190,8 +196,8 @@ pub enum NaturalOption {
 impl fmt::Display for NaturalOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NaturalOption::Literal(v) => write!(f, "{}", v),
-            NaturalOption::Placeholder(v) => write!(f, "{}", v),
+            NaturalOption::Literal(v) => write!(f, "{v}"),
+            NaturalOption::Placeholder(v) => write!(f, "{v}"),
         }
     }
 }
@@ -205,8 +211,8 @@ pub enum CountOption {
 impl fmt::Display for CountOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CountOption::Literal(v) => write!(f, "{}", v),
-            CountOption::Placeholder(v) => write!(f, "{}", v),
+            CountOption::Literal(v) => write!(f, "{v}"),
+            CountOption::Placeholder(v) => write!(f, "{v}"),
         }
     }
 }
@@ -220,8 +226,8 @@ pub enum DurationOption {
 impl fmt::Display for DurationOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DurationOption::Literal(v) => write!(f, "{}", v),
-            DurationOption::Placeholder(v) => write!(f, "{}", v),
+            DurationOption::Literal(v) => write!(f, "{v}"),
+            DurationOption::Placeholder(v) => write!(f, "{v}"),
         }
     }
 }
@@ -257,7 +263,7 @@ impl fmt::Display for VariableValue {
             VariableValue::Number(n) => n.to_string(),
             VariableValue::String(s) => s.to_string(),
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -267,7 +273,7 @@ impl ToSource for VariableValue {
             VariableValue::Null => "null".to_source(),
             VariableValue::Bool(value) => value.to_string().to_source(),
             VariableValue::Number(value) => value.to_source(),
-            VariableValue::String(value) => value.to_string().to_source(),
+            VariableValue::String(value) => value.to_source(),
         }
     }
 }

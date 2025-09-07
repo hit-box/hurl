@@ -296,14 +296,6 @@ This is a cli-only option.
 
 This option explicitly allows Hurl to perform "insecure" SSL connections and transfers.
 
-### --interactive {#interactive}
-
-Stop between requests.
-
-This is similar to a break point, You can then continue (Press C) or quit (Press Q).
-
-This is a cli-only option.
-
 ### -4, --ipv4 {#ipv4}
 
 This option tells Hurl to use IPv4 addresses only when resolving host names, and not for example try IPv6.
@@ -365,6 +357,10 @@ You can specify time units in the maximum time expression. Set Hurl to use a max
 
 See also [`--connect-timeout`](#connect-timeout).
 
+### --negotiate {#negotiate}
+
+Tell Hurl to use Negotiate (SPNEGO) authentication.
+
 ### -n, --netrc {#netrc}
 
 Scan the .netrc file in the user's home directory for the username and password.
@@ -395,15 +391,26 @@ Suppress output. By default, Hurl outputs the body of the last response.
 
 This is a cli-only option.
 
+### --no-pretty {#no-pretty}
+
+Do not prettify response output for supported content type (JSON only for the moment). By default, output is prettified if
+standard output is a terminal.
+
+This is a cli-only option.
+
 ### --noproxy <HOST(S)> {#noproxy}
 
 Comma-separated list of hosts which do not use a proxy.
 
 Override value from Environment variable no_proxy.
 
+### --ntlm {#ntlm}
+
+Tell Hurl to use NTLM authentication
+
 ### -o, --output <FILE> {#output}
 
-Write output to FILE instead of stdout.
+Write output to FILE instead of stdout. Use '-' for stdout in [Options] sections.
 
 ### --parallel {#parallel}
 
@@ -421,7 +428,13 @@ Tell Hurl to not handle sequences of /../ or /./ in the given URL path. Normally
 
 ### --pinnedpubkey <HASHES> {#pinnedpubkey}
 
-When negotiating a TLS or SSL connection, the server sends a certificate indicating its identity. A public key is extracted from this certificate and if it does not exactly match the public key provided to this option, hurl aborts the connection before sending or receiving any data.
+When negotiating a TLS or SSL connection, the server sends a certificate indicating its identity. A public key is extracted from this certificate and if it does not exactly match the public key provided to this option, Hurl aborts the connection before sending or receiving any data.
+
+### --pretty {#pretty}
+
+Prettify response output for supported content type (JSON only for the moment). By default, JSON response is prettified if standard output is a terminal, and colorized, see[`--no-color`](#no-color) to format without color.
+
+This is a cli-only option.
 
 ### --progress-bar {#progress-bar}
 
@@ -437,8 +450,6 @@ Use the specified proxy.
 
 Repeat the input files sequence NUM times, -1 for infinite loop. Given a.hurl, b.hurl, c.hurl as input, repeat two
 times will run a.hurl, b.hurl, c.hurl, a.hurl, b.hurl, c.hurl.
-
-This is a cli-only option.
 
 ### --report-html <DIR> {#report-html}
 
@@ -489,6 +500,18 @@ You can specify time units in the retry interval expression. Set Hurl to use a r
 ### --secret <NAME=VALUE> {#secret}
 
 Define secret value to be redacted from logs and report. When defined, secrets can be used as variable everywhere variables are used.
+
+This is a cli-only option.
+
+### --secrets-file <FILE> {#secrets-file}
+
+Define a secrets file in which you define your secrets
+
+Each secret is defined as name=value exactly as with [`--secret`](#secret) option.
+
+Note that defining a secret twice produces an error.
+
+This is a cli-only option.
 
 ### --ssl-no-revoke {#ssl-no-revoke}
 

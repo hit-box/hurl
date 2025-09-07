@@ -58,6 +58,10 @@ pub fn url(arg_matches: &ArgMatches) -> String {
     }
 }
 
+pub fn cookies(arg_matches: &ArgMatches) -> Vec<String> {
+    get_strings(arg_matches, "cookies").unwrap_or_default()
+}
+
 pub fn headers(arg_matches: &ArgMatches) -> Vec<String> {
     let mut headers = get_strings(arg_matches, "headers").unwrap_or_default();
     if !has_content_type(&headers) {
@@ -85,8 +89,17 @@ pub fn options(arg_matches: &ArgMatches) -> Vec<HurlOption> {
     if let Some(value) = get::<i32>(arg_matches, "max_redirects") {
         options.push(HurlOption::new("max-redirs", value.to_string().as_str()));
     }
+    if has_flag(arg_matches, "negotiate") {
+        options.push(HurlOption::new("negotiate", "true"));
+    }
+    if has_flag(arg_matches, "ntlm") {
+        options.push(HurlOption::new("ntlm", "true"));
+    }
     if let Some(value) = get::<i32>(arg_matches, "retry") {
         options.push(HurlOption::new("retry", value.to_string().as_str()));
+    }
+    if let Some(value) = get::<String>(arg_matches, "user") {
+        options.push(HurlOption::new("user", value.to_string().as_str()));
     }
     if has_flag(arg_matches, "verbose") {
         options.push(HurlOption::new("verbose", "true"));

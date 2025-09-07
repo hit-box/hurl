@@ -16,15 +16,18 @@
  *
  */
 mod commands;
+mod context;
 mod duration;
 mod error;
 mod matches;
 mod variables;
+mod variables_file;
 
 use std::collections::HashMap;
-use std::env;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{env, io};
 
 use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::Styles;
@@ -32,6 +35,7 @@ use clap::ArgMatches;
 pub use error::CliOptionsError;
 use hurl::http;
 use hurl::http::RequestedHttpVersion;
+use hurl::pretty::PrettyMode;
 use hurl::runner::Output;
 use hurl::util::logger::{LoggerOptions, LoggerOptionsBuilder, Verbosity};
 use hurl::util::path::ContextDir;
@@ -40,6 +44,7 @@ use hurl_core::input::{Input, InputKind};
 use hurl_core::typing::{BytesPerSec, Count};
 
 use crate::cli;
+use crate::cli::options::context::RunContext;
 use crate::runner::{RunnerOptions, RunnerOptionsBuilder, Value};
 
 /// Represents the list of all options that can be used in Hurl command line.
@@ -78,15 +83,18 @@ pub struct CliOptions {
     pub limit_rate: Option<BytesPerSec>,
     pub max_filesize: Option<u64>,
     pub max_redirect: Count,
+    pub negotiate: bool,
     pub netrc: bool,
     pub netrc_file: Option<String>,
     pub netrc_optional: bool,
     pub no_proxy: Option<String>,
+    pub ntlm: bool,
     pub output: Option<Output>,
     pub output_type: OutputType,
     pub parallel: bool,
     pub path_as_is: bool,
     pub pinned_pub_key: Option<String>,
+    pub pretty: PrettyMode,
     pub progress_bar: bool,
     pub proxy: Option<String>,
     pub repeat: Option<Count>,
@@ -173,9 +181,9 @@ fn get_version() -> String {
 
 /// Parse the Hurl CLI options and returns a [`CliOptions`] result.
 ///
-/// When a [`CliOptionsError::DisplayHelp`] variant is returned, `allow_color` is used
+/// When a [`CliOptionsError::DisplayHelp`] variant is returned, `with_color` is used
 /// to print an ANSI color help or not.
-pub fn parse(allow_color: bool) -> Result<CliOptions, CliOptionsError> {
+pub fn parse(with_color: bool) -> Result<CliOptions, CliOptionsError> {
     let styles = Styles::styled()
         .header(AnsiColor::Green.on_default() | Effects::BOLD)
         .usage(AnsiColor::Green.on_default() | Effects::BOLD)
@@ -210,7 +218,9 @@ pub fn parse(allow_color: bool) -> Result<CliOptions, CliOptionsError> {
         .arg(commands::max_filesize())
         .arg(commands::max_redirects())
         .arg(commands::max_time())
+        .arg(commands::negotiate())
         .arg(commands::noproxy())
+        .arg(commands::ntlm())
         .arg(commands::path_as_is())
         .arg(commands::pinned_pub_key())
         .arg(commands::proxy())
@@ -227,7 +237,9 @@ pub fn parse(allow_color: bool) -> Result<CliOptions, CliOptionsError> {
         .arg(commands::json())
         .arg(commands::no_color())
         .arg(commands::no_output())
+        .arg(commands::no_pretty())
         .arg(commands::output())
+        .arg(commands::pretty())
         .arg(commands::progress_bar())
         .arg(commands::verbose())
         .arg(commands::very_verbose())
@@ -243,6 +255,7 @@ pub fn parse(allow_color: bool) -> Result<CliOptions, CliOptionsError> {
         .arg(commands::retry())
         .arg(commands::retry_interval())
         .arg(commands::secret())
+        .arg(commands::secrets_file())
         .arg(commands::test())
         .arg(commands::to_entry())
         .arg(commands::variable())
@@ -264,13 +277,20 @@ pub fn parse(allow_color: bool) -> Result<CliOptions, CliOptionsError> {
     let arg_matches = command.try_get_matches_from_mut(env::args_os());
     let arg_matches = match arg_matches {
         Ok(args) => args,
-        Err(error) => return Err(CliOptionsError::from_clap(error, allow_color)),
+        Err(error) => return Err(CliOptionsError::from_clap(error, with_color)),
     };
+
+    // Construct the run context environment
+    let env_vars = env::vars().collect();
+    let stdin_term = io::stdin().is_terminal();
+    let stdout_term = io::stdout().is_terminal();
+    let stderr_term = io::stderr().is_terminal();
+    let ctx = RunContext::new(with_color, env_vars, stdin_term, stdout_term, stderr_term);
 
     // If we've no file input (either from the standard input or from the command line arguments),
     // we just print help and exit.
-    if !matches::has_input_files(&arg_matches) {
-        let help = if allow_color {
+    if !matches::has_input_files(&arg_matches, &ctx) {
+        let help = if with_color {
             command.render_help().ansi().to_string()
         } else {
             command.render_help().to_string()
@@ -278,7 +298,7 @@ pub fn parse(allow_color: bool) -> Result<CliOptions, CliOptionsError> {
         return Err(CliOptionsError::NoInput(help));
     }
 
-    let opts = parse_matches(&arg_matches, allow_color)?;
+    let opts = parse_matches(&arg_matches, &ctx)?;
     if opts.input_files.is_empty() {
         return Err(CliOptionsError::Error(
             "No input files provided".to_string(),
@@ -290,13 +310,13 @@ pub fn parse(allow_color: bool) -> Result<CliOptions, CliOptionsError> {
 
 fn parse_matches(
     arg_matches: &ArgMatches,
-    allow_color: bool,
+    context: &RunContext,
 ) -> Result<CliOptions, CliOptionsError> {
     let aws_sigv4 = matches::aws_sigv4(arg_matches);
     let cacert_file = matches::cacert_file(arg_matches)?;
     let client_cert_file = matches::client_cert_file(arg_matches)?;
     let client_key_file = matches::client_key_file(arg_matches)?;
-    let color = matches::color(arg_matches, allow_color);
+    let color = matches::color(arg_matches, context);
     let compressed = matches::compressed(arg_matches);
     let connect_timeout = matches::connect_timeout(arg_matches)?;
     let connects_to = matches::connects_to(arg_matches);
@@ -314,7 +334,7 @@ fn parse_matches(
     let http_version = matches::http_version(arg_matches);
     let ignore_asserts = matches::ignore_asserts(arg_matches);
     let include = matches::include(arg_matches);
-    let input_files = matches::input_files(arg_matches)?;
+    let input_files = matches::input_files(arg_matches, context)?;
     let insecure = matches::insecure(arg_matches);
     let interactive = matches::interactive(arg_matches);
     let ip_resolve = matches::ip_resolve(arg_matches);
@@ -324,14 +344,17 @@ fn parse_matches(
     let limit_rate = matches::limit_rate(arg_matches);
     let max_filesize = matches::max_filesize(arg_matches);
     let max_redirect = matches::max_redirect(arg_matches);
+    let negotiate = matches::negotiate(arg_matches);
     let netrc = matches::netrc(arg_matches);
     let netrc_file = matches::netrc_file(arg_matches)?;
     let netrc_optional = matches::netrc_optional(arg_matches);
     let no_proxy = matches::no_proxy(arg_matches);
+    let ntlm = matches::ntlm(arg_matches);
     let parallel = matches::parallel(arg_matches);
     let path_as_is = matches::path_as_is(arg_matches);
     let pinned_pub_key = matches::pinned_pub_key(arg_matches);
-    let progress_bar = matches::progress_bar(arg_matches);
+    let progress_bar = matches::progress_bar(arg_matches, context);
+    let pretty = matches::pretty(arg_matches, context);
     let proxy = matches::proxy(arg_matches);
     let output = matches::output(arg_matches);
     let output_type = matches::output_type(arg_matches);
@@ -348,7 +371,7 @@ fn parse_matches(
     let unix_socket = matches::unix_socket(arg_matches);
     let user = matches::user(arg_matches);
     let user_agent = matches::user_agent(arg_matches);
-    let variables = matches::variables(arg_matches)?;
+    let variables = matches::variables(arg_matches, context)?;
     let verbose = matches::verbose(arg_matches);
     let very_verbose = matches::very_verbose(arg_matches);
     Ok(CliOptions {
@@ -384,13 +407,16 @@ fn parse_matches(
         limit_rate,
         max_filesize,
         max_redirect,
+        negotiate,
         netrc,
         netrc_file,
         netrc_optional,
         no_proxy,
+        ntlm,
         path_as_is,
         pinned_pub_key,
         parallel,
+        pretty,
         progress_bar,
         proxy,
         output,
@@ -488,6 +514,8 @@ impl CliOptions {
         let retry = self.retry;
         let retry_interval = self.retry_interval;
         let ssl_no_revoke = self.ssl_no_revoke;
+        let negotiate = self.negotiate;
+        let ntlm = self.ntlm;
         let timeout = self.timeout;
         let to_entry = self.to_entry;
         let unix_socket = self.unix_socket.clone();
@@ -518,10 +546,12 @@ impl CliOptions {
             .max_recv_speed(max_recv_speed)
             .max_redirect(max_redirect)
             .max_send_speed(max_send_speed)
+            .negotiate(negotiate)
             .netrc(netrc)
             .netrc_file(netrc_file)
             .netrc_optional(netrc_optional)
             .no_proxy(no_proxy)
+            .ntlm(ntlm)
             .output(output)
             .path_as_is(path_as_is)
             .pinned_pub_key(pinned_pub_key)

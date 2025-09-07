@@ -29,25 +29,75 @@ pub fn eval_jsonpath(
     source_info: SourceInfo,
     assert: bool,
 ) -> Result<Option<Value>, RunnerError> {
-    match value {
-        Value::String(text) => {
-            let json = match serde_json::from_str(text) {
-                Err(_) => {
-                    return Err(RunnerError::new(
-                        source_info,
-                        RunnerErrorKind::QueryInvalidJson,
-                        false,
-                    ));
-                }
-                Ok(v) => v,
-            };
-            eval_jsonpath_json(&json, expr, variables)
-        }
+    let json = match value {
+        Value::String(text) => match serde_json::from_str(text) {
+            Err(_) => {
+                return Err(RunnerError::new(
+                    source_info,
+                    RunnerErrorKind::FilterInvalidInput("value is not a valid JSON".to_string()),
+                    false,
+                ));
+            }
+            Ok(v) => v,
+        },
+
+        // FIXME: for the moment `jsonpath` filter accepts only string. We need to decide if the filter
+        // accept any value or if we need a `toJson` filter that takes any value and render to string.
+        // See <https://github.com/Orange-OpenSource/hurl/issues/4249>
+        // v => match v.try_to_json() {
+        //     Some(v) => v,
+        //     None => {
+        //         let kind = RunnerErrorKind::FilterInvalidInput(v.kind().to_string());
+        //         return Err(RunnerError::new(source_info, kind, assert));
+        //     }
+        // },
         v => {
             let kind = RunnerErrorKind::FilterInvalidInput(v.kind().to_string());
-            Err(RunnerError::new(source_info, kind, assert))
+            return Err(RunnerError::new(source_info, kind, assert));
         }
-    }
+    };
+    eval_jsonpath_json(&json, expr, variables)
+}
+
+impl Value {
+    // /// Deserializes this [`Value`] to a JSON [`serde_json::Value`].
+    // fn try_to_json(&self) -> Option<serde_json::Value> {
+    //     match self {
+    //         Value::Bool(value) => Some(serde_json::Value::Bool(*value)),
+    //         Value::List(values) => values
+    //             .iter()
+    //             .map(|v| v.try_to_json())
+    //             .collect::<Option<_>>(),
+    //         Value::Null => Some(serde_json::Value::Null),
+    //         Value::Number(Number::Float(value)) => {
+    //             let number = serde_json::Number::from_f64(*value)?;
+    //             Some(serde_json::Value::Number(number))
+    //         }
+    //         Value::Number(Number::Integer(value)) => {
+    //             let number = serde_json::Number::from_i128(*value as i128)?;
+    //             Some(serde_json::Value::Number(number))
+    //         }
+    //         Value::Number(Number::BigInteger(value)) => match serde_json::Number::from_str(value) {
+    //             Ok(n) => Some(serde_json::Value::Number(n)),
+    //             Err(_) => None,
+    //         },
+    //         Value::Object(values) => {
+    //             let mut obj = serde_json::Map::new();
+    //             for (key, value) in values {
+    //                 let value = value.try_to_json()?;
+    //                 obj.insert(key.clone(), value);
+    //             }
+    //             Some(serde_json::Value::Object(obj))
+    //         }
+    //         Value::String(value) => Some(serde_json::Value::String(value.clone())),
+    //         Value::Regex(_)
+    //         | Value::Nodeset(_)
+    //         | Value::HttpResponse(_)
+    //         | Value::Date(_)
+    //         | Value::Bytes(_)
+    //         | Value::Unit => None,
+    //     }
+    // }
 }
 
 pub fn eval_jsonpath_json(
@@ -77,12 +127,11 @@ pub fn eval_jsonpath_json(
 
 #[cfg(test)]
 mod tests {
+    use crate::runner::filter::eval::eval_filter;
+    use crate::runner::{Value, VariableSet};
     use hurl_core::ast::{Filter, FilterValue, SourceInfo, Template, TemplateElement, Whitespace};
     use hurl_core::reader::Pos;
     use hurl_core::typing::ToSource;
-
-    use crate::runner::filter::eval::eval_filter;
-    use crate::runner::{Value, VariableSet};
 
     #[test]
     fn eval_filter_jsonpath() {
@@ -117,4 +166,61 @@ mod tests {
             Value::String("Hello".to_string())
         );
     }
+
+    // #[test]
+    // fn test_try_to_json_bool() {
+    //     let input = Value::Bool(true);
+    //     let expected = json!(true);
+    //     let actual = input.try_to_json().unwrap();
+    //     assert_eq!(actual, expected);
+    //
+    //     let input = Value::Bool(false);
+    //     let expected = serde_json::Value::Bool(false);
+    //     let actual = input.try_to_json().unwrap();
+    //     assert_eq!(actual, expected);
+    // }
+    //
+    // #[test]
+    // fn test_try_to_json_number() {
+    //     let input = Value::Number(Number::Integer(42));
+    //     let expected = json!(42);
+    //     let actual = input.try_to_json().unwrap();
+    //     assert_eq!(actual, expected);
+    //
+    //     let input = Value::Number(Number::Float(3.33));
+    //     let expected = json!(3.33);
+    //     let actual = input.try_to_json().unwrap();
+    //     assert_eq!(actual, expected);
+    //
+    //     let input = Value::Number(Number::BigInteger("10000000000000000365".to_string()));
+    //     let expected: serde_json::Value = serde_json::from_str("10000000000000000365").unwrap();
+    //     let actual = input.try_to_json().unwrap();
+    //     assert_eq!(actual, expected);
+    // }
+    //
+    // #[test]
+    // fn test_try_to_json_list() {
+    //     let input = Value::List(vec![
+    //         Value::String("foo".to_string()),
+    //         Value::String("bar".to_string()),
+    //         Value::String("baz".to_string()),
+    //     ]);
+    //     let expected = json!(["foo", "bar", "baz"]);
+    //     let actual = input.try_to_json().unwrap();
+    //     assert_eq!(actual, expected);
+    // }
+    //
+    // #[test]
+    // fn test_try_to_json_object() {
+    //     let input = Value::Object(vec![
+    //         ("name".to_string(), Value::String("bob".to_string())),
+    //         ("age".to_string(), Value::Number(Number::Integer(33))),
+    //     ]);
+    //     let expected = json!({
+    //         "name": "bob",
+    //         "age": 33
+    //     });
+    //     let actual = input.try_to_json().unwrap();
+    //     assert_eq!(actual, expected);
+    // }
 }
